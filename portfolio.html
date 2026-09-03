@@ -16,9 +16,9 @@
     <link rel="canonical" href="https://esodevelops.com/">
 
     <!-- Brand Identity & High-DPI Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="alternate icon" href="/favicon.svg">
-    <link rel="apple-touch-icon" href="/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3">
+    <link rel="alternate icon" href="/favicon.svg?v=3">
+    <link rel="apple-touch-icon" href="/favicon.svg?v=3">
 
     <!-- Open Graph / Social Media Meta (LinkedIn, Discord, Facebook, WhatsApp) -->
     <meta property="og:type" content="website">
@@ -206,12 +206,39 @@
         }
 
         .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
             font-family: var(--font-mono);
             font-size: 15px;
             font-weight: 500;
             color: var(--text-primary);
             text-decoration: none;
             letter-spacing: 0.05em;
+        }
+
+        .brand-logo {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            display: block;
+        }
+
+        .brand-logo .logo-bar {
+            fill: var(--text-primary);
+            transition: x 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+        }
+
+        .brand-logo .logo-bar-middle {
+            x: 35;
+        }
+
+        .brand:hover .logo-bar-middle {
+            x: 15;
+        }
+
+        .brand:hover .logo-bar {
+            filter: drop-shadow(0 0 6px var(--accent));
         }
 
         .brand em {
@@ -1471,7 +1498,14 @@
     <!-- 2. Header & Navigation -->
     <header class="site-header">
         <div class="header-inner">
-            <a href="#" class="brand"><em>~/</em>ESO</a>
+            <a href="#" class="brand" aria-label="EsoDevelops Home">
+                <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-hidden="true">
+                    <rect class="logo-bar" x="15" y="12" width="70" height="16" rx="8" />
+                    <rect class="logo-bar logo-bar-middle" x="35" y="42" width="50" height="16" rx="8" />
+                    <rect class="logo-bar" x="15" y="72" width="70" height="16" rx="8" />
+                </svg>
+                <span><em>~/</em>ESO</span>
+            </a>
             <nav class="nav-links">
                 <a href="#work">WORK</a>
                 <a href="#about">ABOUT</a>
