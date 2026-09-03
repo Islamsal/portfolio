@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writing &amp; Research — Islam Salem (Eso) | Systems, Architecture &amp; Essays</title>
+
+    <!-- SEO & Indexing Directives -->
+    <meta name="description"
+        content="Technical writing, deep-dive research, and architecture essays by Islam Salem (Eso). Exploring low-overhead software engineering, local-first systems, and minimal runtimes.">
+    <meta name="keywords"
+        content="Islam Salem, Eso, Writing, Technical Research, Systems Architecture, Low-Overhead Software, Offline-First, Local-First, Performance, Web Engineering">
+    <meta name="author" content="Islam Salem (Eso)">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+    <meta name="theme-color" content="#0a0b0d">
+    <meta name="color-scheme" content="dark light">
+    <link rel="canonical" href="https://esodevelops.com/writing/">
+
+    <!-- Brand Identity & High-DPI Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3">
+    <link rel="alternate icon" href="/favicon.svg?v=3">
+    <link rel="apple-touch-icon" href="/favicon.svg?v=3">
+
+    <!-- Open Graph / Social Media Meta -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://esodevelops.com/writing/">
+    <meta property="og:site_name" content="EsoDevelops">
+    <meta property="og:title" content="Writing &amp; Research — Islam Salem (Eso)">
+    <meta property="og:description"
+        content="Deep-dive research, technical architecture essays, and systems engineering thoughts by Islam Salem (Eso).">
+    <meta property="og:image" content="https://esodevelops.com/favicon.svg">
+
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:site" content="@EsoUpdates">
+    <meta name="twitter:creator" content="@EsoUpdates">
+    <meta name="twitter:title" content="Writing &amp; Research — Islam Salem (Eso)">
+    <meta name="twitter:description"
+        content="Deep-dive research, technical architecture essays, and systems engineering thoughts by Islam Salem (Eso).">
+    <meta name="twitter:image" content="https://esodevelops.com/favicon.svg">
+
+    <!-- Schema.org Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "CollectionPage",
+          "@id": "https://esodevelops.com/writing/#collection",
+          "url": "https://esodevelops.com/writing/",
+          "name": "Writing & Research — Islam Salem (Eso)",
+          "description": "Technical research and architecture essays by Islam Salem (Eso).",
+          "isPartOf": {
+            "@id": "https://esodevelops.com/#website"
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- Google Fonts: Space Grotesk + JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* ======================================================
+           DESIGN TOKENS (:root)
+           Seamlessly mirrors the main portfolio theme system
+           ====================================================== */
+        :root {
+            --bg: #0a0b0d;
+            --text-primary: #f1f3f5;
+            --text-muted: #8b949e;
+            --accent: #3dd68c;
+            --accent-glow: rgba(61, 214, 140, 0.15);
+            --header-bg: rgba(10, 11, 13, 0.85);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.18);
+            --card-bg: rgba(255, 255, 255, 0.02);
+            --card-hover-bg: rgba(255, 255, 255, 0.04);
+            --font-heading: 'Space Grotesk', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --eso-glow: rgba(250, 250, 250, 0.25);
+        }
+
+        :root[data-theme="light"] {
+            --bg: #f7f6f2;
+            --text-primary: #18191a;
+            --text-muted: #626569;
+            --accent: #0e8c5f;
+            --accent-glow: rgba(14, 140, 95, 0.15);
+            --header-bg: rgba(247, 246, 242, 0.85);
+            --border-subtle: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(0, 0, 0, 0.18);
+            --card-bg: rgba(0, 0, 0, 0.02);
+            --card-hover-bg: rgba(0, 0, 0, 0.04);
+            --eso-glow: rgba(9, 9, 11, 0.15);
+        }
+
+        /* Base Resets */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            background-color: var(--bg);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: var(--font-heading);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ======================================================
+           HEADER & NAVIGATION
+           ====================================================== */
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--header-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .header-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 6px;
+            transition: opacity 0.2s ease;
+        }
+
+        .brand:hover {
+            opacity: 0.95;
+        }
+
+        .brand-logo {
+            width: 26px;
+            height: 26px;
+            flex-shrink: 0;
+            display: block;
+        }
+
+        .brand-logo .logo-bar {
+            fill: var(--text-primary);
+            transition: x 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease, fill 0.3s ease;
+        }
+
+        .brand-logo .logo-bar-middle {
+            x: 35;
+        }
+
+        .brand:hover .logo-bar-middle {
+            x: 15;
+        }
+
+        .brand:hover .logo-bar {
+            filter: drop-shadow(0 0 6px var(--eso-glow));
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-links a {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--text-primary);
+        }
+
+        .nav-links a.active {
+            color: var(--accent);
+        }
+
+        .theme-btn {
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: border-color 0.2s ease, color 0.2s ease;
+        }
+
+        .theme-btn:hover {
+            border-color: var(--text-primary);
+            color: var(--text-primary);
+        }
+
+        /* ======================================================
+           MAIN CONTENT AREA
+           ====================================================== */
+        .main-container {
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 60px 24px 100px;
+            flex: 1;
+        }
+
+        /* Hero / Introduction */
+        .writing-header {
+            margin-bottom: 48px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 9999px;
+            border: 1px solid var(--border-subtle);
+            background: rgba(255, 255, 255, 0.02);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+        }
+
+        .page-title {
+            font-size: clamp(32px, 5vw, 44px);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            line-height: 1.15;
+        }
+
+        .page-desc {
+            font-size: 16px;
+            line-height: 1.6;
+            color: var(--text-muted);
+            max-width: 640px;
+        }
+
+        /* ======================================================
+           FILTER & SEARCH BAR
+           ====================================================== */
+        .filter-dock {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 36px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .category-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pill-btn {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            padding: 6px 12px;
+            border-radius: 6px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pill-btn:hover {
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        .pill-btn.active {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .search-box {
+            position: relative;
+            min-width: 220px;
+        }
+
+        .search-input {
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: 8px 12px 8px 32px;
+            border-radius: 6px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        /* ======================================================
+           POSTS LIST (EDITORIAL STEAMLINED VIEW)
+           ====================================================== */
+        .posts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .post-card {
+            display: block;
+            text-decoration: none;
+            padding: 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+
+        .post-card:hover {
+            background: var(--card-hover-bg);
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+        }
+
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+        }
+
+        .post-tag {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .post-meta {
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .post-title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+            line-height: 1.3;
+            transition: color 0.2s ease;
+        }
+
+        .post-card:hover .post-title {
+            color: var(--accent);
+        }
+
+        .post-excerpt {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .post-footer {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            transition: color 0.2s ease, gap 0.2s ease;
+        }
+
+        .post-card:hover .post-footer {
+            color: var(--text-primary);
+            gap: 10px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: none;
+            padding: 60px 24px;
+            text-align: center;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ======================================================
+           FOOTER
+           ====================================================== */
+        .site-footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 32px 24px;
+            margin-top: auto;
+        }
+
+        .footer-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .footer-inner a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .footer-inner a:hover {
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 640px) {
+            .filter-dock {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .search-box {
+                width: 100%;
+            }
+            .post-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+            .footer-inner {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 1. Header & Navigation -->
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/" class="brand" aria-label="Back to Portfolio Home" title="Back to Portfolio Home">
+                <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-hidden="true">
+                    <rect class="logo-bar" x="15" y="12" width="70" height="16" rx="8" />
+                    <rect class="logo-bar logo-bar-middle" x="35" y="42" width="50" height="16" rx="8" />
+                    <rect class="logo-bar" x="15" y="72" width="70" height="16" rx="8" />
+                </svg>
+            </a>
+            <nav class="nav-links">
+                <a href="/">PORTFOLIO</a>
+                <a href="/writing/" class="active">WRITING</a>
+                <button id="themeToggle" class="theme-btn" type="button" aria-label="Toggle theme">DARK</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- 2. Main Writing & Research Container -->
+    <main class="main-container">
+        <!-- Hero Header -->
+        <div class="writing-header">
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span>SYSTEMS // RESEARCH &amp; WRITING</span>
+            </div>
+            <h1 class="page-title">Writing &amp; Research</h1>
+            <p class="page-desc">
+                Engineering deep-dives, systems architecture research, and thoughts on building low-overhead software without bloat.
+            </p>
+        </div>
+
+        <!-- Filter & Search Dock -->
+        <div class="filter-dock">
+            <div class="category-pills" id="categoryPills">
+                <button class="pill-btn active" data-category="all">All</button>
+                <button class="pill-btn" data-category="research">Research</button>
+                <button class="pill-btn" data-category="systems">Systems</button>
+                <button class="pill-btn" data-category="essays">Essays</button>
+            </div>
+            <div class="search-box">
+                <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="searchInput" class="search-input" placeholder="Filter articles..." aria-label="Search articles">
+            </div>
+        </div>
+
+        <!-- Posts List -->
+        <div class="posts-list" id="postsList">
+
+            <!-- Post 1: Low-Overhead Engineering -->
+            <article class="post-card" data-category="systems" data-title="The Architecture of Low-Overhead Software">
+                <div class="post-header">
+                    <span class="post-tag">SYSTEMS</span>
+                    <div class="post-meta">
+                        <time datetime="2026-09-01">Sep 2026</time>
+                        <span>•</span>
+                        <span>6 min read</span>
+                    </div>
+                </div>
+                <h2 class="post-title">The Architecture of Low-Overhead Software</h2>
+                <p class="post-excerpt">
+                    Why modern software drowns in runtime layers, framework wrappers, and unnecessary dependencies—and how we can architect systems that stay blisteringly fast and resource-efficient.
+                </p>
+                <div class="post-footer">
+                    <span>READ ESSAY</span>
+                    <span>→</span>
+                </div>
+            </article>
+
+            <!-- Post 2: Local-First & Sovereignty -->
+            <article class="post-card" data-category="research" data-title="Local-First Computing: Designing for Sovereignty">
+                <div class="post-header">
+                    <span class="post-tag">RESEARCH</span>
+                    <div class="post-meta">
+                        <time datetime="2026-08-18">Aug 2026</time>
+                        <span>•</span>
+                        <span>8 min read</span>
+                    </div>
+                </div>
+                <h2 class="post-title">Local-First Computing: Designing for Sovereignty</h2>
+                <p class="post-excerpt">
+                    Moving compute back to the client. Exploring SQLite in WebAssembly, offline-first state reconciliation, and building applications that continue functioning with zero cloud dependencies.
+                </p>
+                <div class="post-footer">
+                    <span>READ RESEARCH</span>
+                    <span>→</span>
+                </div>
+            </article>
+
+            <!-- Post 3: Real-Time Audio at the Edge -->
+            <article class="post-card" data-category="systems" data-title="Streaming Ultra-Low Latency 24kHz PCM Audio at the Edge">
+                <div class="post-header">
+                    <span class="post-tag">SYSTEMS</span>
+                    <div class="post-meta">
+                        <time datetime="2026-08-04">Aug 2026</time>
+                        <span>•</span>
+                        <span>5 min read</span>
+                    </div>
+                </div>
+                <h2 class="post-title">Streaming Ultra-Low Latency 24kHz PCM Audio at the Edge</h2>
+                <p class="post-excerpt">
+                    Architectural lessons from engineering bidirectional WebSocket pipelines between Gemini Live API, Cloudflare Workers binary frame translation, and native Web Audio DataView decoders.
+                </p>
+                <div class="post-footer">
+                    <span>READ BREAKDOWN</span>
+                    <span>→</span>
+                </div>
+            </article>
+
+            <!-- Post 4: The Solo Developer Advantage -->
+            <article class="post-card" data-category="essays" data-title="The Independent Developer in the Era of Amplified Tools">
+                <div class="post-header">
+                    <span class="post-tag">ESSAYS</span>
+                    <div class="post-meta">
+                        <time datetime="2026-07-22">Jul 2026</time>
+                        <span>•</span>
+                        <span>4 min read</span>
+                    </div>
+                </div>
+                <h2 class="post-title">The Independent Developer in the Era of Amplified Tools</h2>
+                <p class="post-excerpt">
+                    How solo engineers leverage modern LLM reasoning, edge computing, and minimalist tooling to build services that previously required entire engineering divisions.
+                </p>
+                <div class="post-footer">
+                    <span>READ ESSAY</span>
+                    <span>→</span>
+                </div>
+            </article>
+
+        </div>
+
+        <div class="empty-state" id="emptyState">
+            // No articles found matching your filter query.
+        </div>
+    </main>
+
+    <!-- 3. Footer -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <span>© 2026 Islam Salem (Eso). Crafted with zero bloat.</span>
+            <a href="/">← Return to Portfolio</a>
+        </div>
+    </footer>
+
+    <!-- Client-side Fast Filtering & Theme Sync -->
+    <script>
+        (() => {
+            // 1. Theme Synchronization with LocalStorage
+            const themeBtn = document.getElementById("themeToggle");
+            const savedTheme = localStorage.getItem("eso-theme");
+            
+            if (savedTheme === "light") {
+                document.documentElement.setAttribute("data-theme", "light");
+                if (themeBtn) themeBtn.textContent = "LIGHT";
+            } else {
+                document.documentElement.removeAttribute("data-theme");
+                if (themeBtn) themeBtn.textContent = "DARK";
+            }
+
+            if (themeBtn) {
+                themeBtn.addEventListener("click", () => {
+                    const isLight = document.documentElement.getAttribute("data-theme") === "light";
+                    if (isLight) {
+                        document.documentElement.removeAttribute("data-theme");
+                        themeBtn.textContent = "DARK";
+                        localStorage.setItem("eso-theme", "dark");
+                    } else {
+                        document.documentElement.setAttribute("data-theme", "light");
+                        themeBtn.textContent = "LIGHT";
+                        localStorage.setItem("eso-theme", "light");
+                    }
+                });
+            }
+
+            // 2. Fast Instant Client-side Search & Category Filter
+            const searchInput = document.getElementById("searchInput");
+            const pillBtns = document.querySelectorAll(".pill-btn");
+            const postCards = document.querySelectorAll(".post-card");
+            const emptyState = document.getElementById("emptyState");
+
+            let currentCategory = "all";
+            let searchQuery = "";
+
+            function filterPosts() {
+                let visibleCount = 0;
+
+                postCards.forEach((card) => {
+                    const category = card.getAttribute("data-category");
+                    const title = card.getAttribute("data-title").toLowerCase();
+                    const excerpt = card.querySelector(".post-excerpt").textContent.toLowerCase();
+
+                    const matchesCategory = currentCategory === "all" || category === currentCategory;
+                    const matchesSearch = !searchQuery || title.includes(searchQuery) || excerpt.includes(searchQuery);
+
+                    if (matchesCategory && matchesSearch) {
+                        card.style.display = "block";
+                        visibleCount++;
+                    } else {
+                        card.style.display = "none";
+                    }
+                });
+
+                if (emptyState) {
+                    emptyState.style.display = visibleCount === 0 ? "block" : "none";
+                }
+            }
+
+            pillBtns.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    pillBtns.forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    currentCategory = btn.getAttribute("data-category");
+                    filterPosts();
+                });
+            });
+
+            if (searchInput) {
+                searchInput.addEventListener("input", (e) => {
+                    searchQuery = e.target.value.toLowerCase().trim();
+                    filterPosts();
+                });
+            }
+        })();
+    </script>
+</body>
+
+</html>

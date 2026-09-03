@@ -1510,6 +1510,7 @@
                 <a href="#work">WORK</a>
                 <a href="#about">ABOUT</a>
                 <a href="#contact">CONTACT</a>
+                <a href="/writing/">WRITING</a>
                 <button id="themeToggle" class="theme-btn" type="button" aria-label="Toggle theme">DARK</button>
             </nav>
         </div>
@@ -2066,10 +2067,17 @@
             if (isLight) {
                 document.documentElement.setAttribute("data-theme", "light");
                 themeBtn.textContent = "LIGHT";
+                localStorage.setItem("eso-theme", "light");
             } else {
                 document.documentElement.removeAttribute("data-theme");
                 themeBtn.textContent = "DARK";
+                localStorage.setItem("eso-theme", "dark");
             }
+        }
+
+        // Restore saved theme on initial load
+        if (localStorage.getItem("eso-theme") === "light") {
+            applyTheme(true);
         }
 
         themeBtn.addEventListener("click", (e) => {
