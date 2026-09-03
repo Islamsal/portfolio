@@ -47,7 +47,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
     return new Promise(async (resolve, reject) => {
         let isDone = false;
         const liveModel = "models/gemini-2.5-flash-native-audio-preview-09-2025";
-        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
 
         let ws = null;
         let isAlreadyOpen = false;
@@ -98,7 +98,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                     setup: {
                         model: liveModel,
                         generationConfig: {
-                            responseModalities: ["AUDIO", "TEXT"],
+                            responseModalities: ["AUDIO"],
                             speechConfig: {
                                 voiceConfig: {
                                     prebuiltVoiceConfig: {
@@ -132,6 +132,13 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                     data = JSON.parse(event.data);
                 } else {
                     return;
+                }
+
+                if (data.error) {
+                    isDone = true;
+                    clearTimeout(timeout);
+                    try { ws.close(); } catch(e){}
+                    return reject(new Error("Live API Error: " + (data.error.message || JSON.stringify(data.error))));
                 }
 
                 if (data.setupComplete) {
@@ -199,7 +206,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
             }
         });
 
-        ws.addEventListener("close", () => {
+        ws.addEventListener("close", (event) => {
             if (!isDone) {
                 isDone = true;
                 clearTimeout(timeout);
@@ -211,7 +218,9 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                         engine: "Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited)"
                     });
                 } else {
-                    reject(new Error("Live API connection closed before content received"));
+                    const code = event ? event.code : "none";
+                    const reason = event ? (event.reason || "none") : "none";
+                    reject(new Error(`Live API closed before content. Code: ${code}, Reason: ${reason}`));
                 }
             }
         });
