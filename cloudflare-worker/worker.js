@@ -187,7 +187,56 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
                 "This information is not available on this site. You can check Eso's updates directly on X (@EsoUpdates) or LinkedIn.";
 
-            return new Response(JSON.stringify({ reply: replyText }), {
+            // 2. Synthesize Gemini Native Studio Voice Audio
+            let audioData = null;
+            let audioMime = null;
+
+            try {
+                const ttsModel = "models/gemini-2.0-flash";
+                const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/${ttsModel}:generateContent?key=${apiKey}`;
+                const ttsRes = await fetch(ttsUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [
+                            {
+                                role: "user",
+                                parts: [{ text: `Speak this answer concisely in an authentic, natural voice:\n${replyText}` }]
+                            }
+                        ],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: {
+                                        voiceName: "Puck"
+                                    }
+                                }
+                            }
+                        }
+                    })
+                });
+
+                if (ttsRes.ok) {
+                    const ttsJson = await ttsRes.json();
+                    const audioPart = ttsJson.candidates?.[0]?.content?.parts?.find(p => p.inlineData || p.inline_data);
+                    if (audioPart) {
+                        const blob = audioPart.inlineData || audioPart.inline_data;
+                        audioData = blob.data;
+                        audioMime = blob.mimeType || blob.mime_type || "audio/wav";
+                    }
+                } else {
+                    console.warn("Gemini Audio Generation error:", await ttsRes.text());
+                }
+            } catch (ttsErr) {
+                console.warn("TTS Error:", ttsErr);
+            }
+
+            return new Response(JSON.stringify({ 
+                reply: replyText,
+                audio: audioData,
+                audioMime: audioMime
+            }), {
                 status: 200,
                 headers: { "Content-Type": "application/json", ...corsHeaders(request) },
             });

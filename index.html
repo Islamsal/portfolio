@@ -2369,6 +2369,38 @@
             });
         }
 
+        const playNativeGeminiAudio = (base64Audio, mime = "audio/wav") => {
+            if (!isVoiceOutputEnabled) return;
+            try {
+                if (window.__currentAudio) {
+                    try {
+                        window.__currentAudio.pause();
+                        window.__currentAudio.currentTime = 0;
+                    } catch(e){}
+                }
+                const audio = new Audio(`data:${mime};base64,${base64Audio}`);
+                window.__currentAudio = audio;
+
+                audio.onplay = () => aiWidget.classList.add("speaking");
+                audio.onended = () => aiWidget.classList.remove("speaking");
+                audio.onerror = () => {
+                    aiWidget.classList.remove("speaking");
+                    console.warn("Native audio decode error, falling back to speech synthesis");
+                };
+
+                const p = audio.play();
+                if (p !== undefined) {
+                    p.catch(err => {
+                        console.warn("Audio autoplay blocked:", err);
+                        aiWidget.classList.remove("speaking");
+                    });
+                }
+            } catch (err) {
+                console.warn("Native audio error:", err);
+                aiWidget.classList.remove("speaking");
+            }
+        };
+
         // Submit Text Question
         const handleAiSubmit = async (e) => {
             if (e) e.preventDefault();
@@ -2391,7 +2423,11 @@
                     const data = await res.json();
                     if (data && data.reply) {
                         streamTypewriter(botMsg, data.reply);
-                        speakAiResponse(data.reply);
+                        if (data.audio) {
+                            playNativeGeminiAudio(data.audio, data.audioMime);
+                        } else {
+                            speakAiResponse(data.reply);
+                        }
                         return;
                     }
                 } catch (err) {
@@ -2514,7 +2550,11 @@
                                 const data = await res.json();
                                 if (data && data.reply) {
                                     streamTypewriter(botMsg, data.reply);
-                                    speakAiResponse(data.reply);
+                                    if (data.audio) {
+                                        playNativeGeminiAudio(data.audio, data.audioMime);
+                                    } else {
+                                        speakAiResponse(data.reply);
+                                    }
                                     return;
                                 }
                             } catch (err) {
