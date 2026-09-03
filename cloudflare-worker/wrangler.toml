@@ -1,0 +1,6 @@
+name = "eso-portfolio-ai"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# Environment variables will be populated in Cloudflare dashboard or via:
+# npx wrangler secret put GEMINI_API_KEY
