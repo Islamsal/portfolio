@@ -109,11 +109,11 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                                 m.supportedGenerationMethods.includes("generateContent")
                             );
                             if (supported.length > 0) {
-                                // Prioritize flash models for low latency
+                                // Prioritize flash-lite models for highest daily quota (500 RPD) and low latency
                                 supported.sort((a, b) => {
-                                    const aFlash = a.name.includes("flash") ? 1 : 0;
-                                    const bFlash = b.name.includes("flash") ? 1 : 0;
-                                    return bFlash - aFlash;
+                                    const aLite = a.includes("flash-lite") ? 2 : (a.includes("flash") ? 1 : 0);
+                                    const bLite = b.includes("flash-lite") ? 2 : (b.includes("flash") ? 1 : 0);
+                                    return bLite - aLite;
                                 });
                                 cachedModels = supported.map(m => m.name);
                             }
