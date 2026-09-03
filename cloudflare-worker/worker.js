@@ -95,9 +95,9 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
             if (!isDone) {
                 isDone = true;
                 try { ws.close(); } catch(e){}
-                reject(new Error("Live API timeout after 2000ms. Trace: " + trace.join(" > ")));
+                reject(new Error("Live API timeout after 5000ms. Trace: " + trace.join(" > ")));
             }
-        }, 2000);
+        }, 5000);
 
         const audioChunks = [];
         let accumulatedText = "";
@@ -138,7 +138,6 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
 
         ws.addEventListener("message", (event) => {
             if (isDone) return;
-            trace.push("msg_received");
             try {
                 let data;
                 if (typeof event.data === "string") {
@@ -147,6 +146,8 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                     return;
                 }
 
+                trace.push("keys:" + Object.keys(data).join(","));
+
                 if (data.error) {
                     isDone = true;
                     clearTimeout(timeout);
@@ -154,7 +155,8 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                     return reject(new Error("Live API Error: " + (data.error.message || JSON.stringify(data.error))));
                 }
 
-                if (data.setupComplete) {
+                if (data.setupComplete || data.setup_complete) {
+                    trace.push("sending_query");
                     if (userAudio) {
                         ws.send(JSON.stringify({
                             realtimeInput: {
@@ -183,6 +185,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                 }
 
                 if (data.serverContent?.modelTurn?.parts) {
+                    trace.push("parts:" + data.serverContent.modelTurn.parts.length);
                     for (const part of data.serverContent.modelTurn.parts) {
                         if (part.text) accumulatedText += part.text;
                         const inline = part.inlineData || part.inline_data;
@@ -193,6 +196,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                 }
 
                 if (data.serverContent?.turnComplete) {
+                    trace.push("turn_complete_audio:" + audioChunks.length);
                     isDone = true;
                     clearTimeout(timeout);
                     try { ws.close(); } catch(e){}
