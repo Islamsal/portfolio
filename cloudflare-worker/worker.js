@@ -9,6 +9,181 @@
 
 let cachedModels = null;
 
+function base64ToUint8(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+}
+
+function uint8ToBase64(bytes) {
+    let bin = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        bin += String.fromCharCode(bytes[i]);
+    }
+    return btoa(bin);
+}
+
+function concatBase64Chunks(chunks) {
+    if (!chunks || chunks.length === 0) return null;
+    if (chunks.length === 1) return chunks[0];
+    const uint8Arrays = chunks.map(base64ToUint8);
+    const totalLen = uint8Arrays.reduce((sum, a) => sum + a.length, 0);
+    const combined = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const arr of uint8Arrays) {
+        combined.set(arr, offset);
+        offset += arr.length;
+    }
+    return uint8ToBase64(combined);
+}
+
+/**
+ * Connect to Gemini Live API over WebSocket (bidiGenerateContent)
+ * Model: Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited Free Quota)
+ */
+async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, systemPrompt }) {
+    return new Promise((resolve, reject) => {
+        let isDone = false;
+        const liveModel = "models/gemini-2.5-flash-native-audio-preview-09-2025";
+        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+
+        let ws;
+        try {
+            ws = new WebSocket(wsUrl);
+        } catch(err) {
+            return reject(err);
+        }
+
+        const timeout = setTimeout(() => {
+            if (!isDone) {
+                isDone = true;
+                try { ws.close(); } catch(e){}
+                reject(new Error("Live API timeout after 7500ms"));
+            }
+        }, 7500);
+
+        const audioChunks = [];
+        let accumulatedText = "";
+
+        ws.addEventListener("open", () => {
+            // Send setup handshake
+            const setupMsg = {
+                setup: {
+                    model: liveModel,
+                    generationConfig: {
+                        responseModalities: ["AUDIO", "TEXT"],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: {
+                                    voiceName: "Puck"
+                                }
+                            }
+                        }
+                    },
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    }
+                }
+            };
+            ws.send(JSON.stringify(setupMsg));
+        });
+
+        ws.addEventListener("message", (event) => {
+            if (isDone) return;
+            try {
+                let data;
+                if (typeof event.data === "string") {
+                    data = JSON.parse(event.data);
+                } else {
+                    return;
+                }
+
+                if (data.setupComplete) {
+                    if (userAudio) {
+                        ws.send(JSON.stringify({
+                            realtimeInput: {
+                                mediaChunks: [
+                                    {
+                                        mimeType: audioMime || "audio/webm",
+                                        data: userAudio
+                                    }
+                                ]
+                            }
+                        }));
+                    } else {
+                        ws.send(JSON.stringify({
+                            clientContent: {
+                                turns: [
+                                    {
+                                        role: "user",
+                                        parts: [{ text: userText }]
+                                    }
+                                ],
+                                turnComplete: true
+                            }
+                        }));
+                    }
+                    return;
+                }
+
+                if (data.serverContent?.modelTurn?.parts) {
+                    for (const part of data.serverContent.modelTurn.parts) {
+                        if (part.text) accumulatedText += part.text;
+                        const inline = part.inlineData || part.inline_data;
+                        if (inline?.data) {
+                            audioChunks.push(inline.data);
+                        }
+                    }
+                }
+
+                if (data.serverContent?.turnComplete) {
+                    isDone = true;
+                    clearTimeout(timeout);
+                    try { ws.close(); } catch(e){}
+
+                    const finalAudio = concatBase64Chunks(audioChunks);
+                    resolve({
+                        reply: accumulatedText.trim() || "System online. Ready to talk code, systems, and low-overhead software.",
+                        audio: finalAudio,
+                        audioMime: "audio/l16; rate=24000; channels=1",
+                        engine: "Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited)"
+                    });
+                }
+            } catch(e) {
+                console.warn("Live API message parse error:", e);
+            }
+        });
+
+        ws.addEventListener("error", (err) => {
+            if (!isDone) {
+                isDone = true;
+                clearTimeout(timeout);
+                try { ws.close(); } catch(e){}
+                reject(err);
+            }
+        });
+
+        ws.addEventListener("close", () => {
+            if (!isDone) {
+                isDone = true;
+                clearTimeout(timeout);
+                if (audioChunks.length > 0) {
+                    resolve({
+                        reply: accumulatedText.trim() || "System online.",
+                        audio: concatBase64Chunks(audioChunks),
+                        audioMime: "audio/l16; rate=24000; channels=1",
+                        engine: "Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited)"
+                    });
+                } else {
+                    reject(new Error("Live API connection closed before content received"));
+                }
+            }
+        });
+    });
+}
+
 export default {
     async fetch(request, env) {
         // Handle CORS Preflight
@@ -97,6 +272,38 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
    - Keep answers focused, typically 1 to 3 sentences unless a deeper breakdown is requested.
 `;
 
+            // ----------------------------------------------------
+            // 1. PRIMARY ENGINE: Gemini 2.5 Flash Native Audio Dialog (Live API WebSocket)
+            // Model: models/gemini-2.5-flash-native-audio-preview-09-2025
+            // Free Tier Quota: UNLIMITED (0 / Unlimited in Google AI Studio)
+            // ----------------------------------------------------
+            try {
+                const liveResult = await requestGeminiLiveAudio({
+                    apiKey,
+                    userText: userMessage,
+                    userAudio,
+                    audioMime,
+                    systemPrompt: systemInstruction
+                });
+
+                if (liveResult && (liveResult.audio || liveResult.reply)) {
+                    return new Response(JSON.stringify({
+                        reply: liveResult.reply,
+                        audio: liveResult.audio,
+                        audioMime: liveResult.audioMime,
+                        engine: liveResult.engine
+                    }), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+                    });
+                }
+            } catch (liveErr) {
+                console.warn("Primary Live API Audio Engine fallback to REST:", liveErr.message || liveErr);
+            }
+
+            // ----------------------------------------------------
+            // 2. SECONDARY ENGINE (FALLBACK): High-Quota REST Models (500 RPD)
+            // ----------------------------------------------------
             // Fast In-Memory Cached Model Discovery (Discovers exact working models on key, then caches in RAM)
             if (!cachedModels || cachedModels.length === 0) {
                 try {
@@ -203,7 +410,10 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             // 2. Direct Studio Audio Voice Generation (Uses verified audio-capable Gemini models)
             let outputAudioData = null;
             let outputAudioMime = null;
+            let debugTtsLog = [];
             const ttsCandidates = [
+                "models/gemini-2.5-flash-native-audio-latest",
+                "models/gemini-2.5-flash-native-audio-preview-09-2025",
                 "models/gemini-2.0-flash",
                 "models/gemini-2.5-flash-preview-tts",
                 "models/gemini-3.1-flash-tts-preview"
@@ -242,18 +452,23 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                             const blob = audioPart.inlineData || audioPart.inline_data;
                             outputAudioData = blob.data;
                             outputAudioMime = blob.mimeType || blob.mime_type || "audio/l16; rate=24000; channels=1";
+                            debugTtsLog.push({ model: ttsModel, status: ttsRes.status, success: true });
                             break;
                         }
+                    } else {
+                        const errTxt = await ttsRes.text();
+                        debugTtsLog.push({ model: ttsModel, status: ttsRes.status, error: errTxt.substring(0, 150) });
                     }
                 } catch (ttsErr) {
-                    console.warn(`TTS Error on ${ttsModel}:`, ttsErr);
+                    debugTtsLog.push({ model: ttsModel, error: ttsErr.message });
                 }
             }
 
             return new Response(JSON.stringify({ 
                 reply: replyText,
                 audio: outputAudioData,
-                audioMime: outputAudioMime
+                audioMime: outputAudioMime,
+                debugTTS: debugTtsLog
             }), {
                 status: 200,
                 headers: { "Content-Type": "application/json", ...corsHeaders(request) },
