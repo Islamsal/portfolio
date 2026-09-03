@@ -63,6 +63,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
             trace.push("fetch_status_" + wsRes.status);
             if (wsRes && wsRes.webSocket) {
                 ws = wsRes.webSocket;
+                try { ws.binaryType = "arraybuffer"; } catch(e){}
                 ws.accept();
                 isAlreadyOpen = true;
                 trace.push("ws_accepted");
@@ -80,6 +81,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                 trace.push("attempt_new_websocket");
                 if (typeof WebSocket !== "undefined") {
                     ws = new WebSocket(wsUrl);
+                    try { ws.binaryType = "arraybuffer"; } catch(e){}
                     trace.push("new_ws_created");
                 }
             } catch (wsErr) {
@@ -97,9 +99,9 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
             if (!isDone) {
                 isDone = true;
                 try { ws.close(); } catch(e){}
-                reject(new Error("Live API handshake timeout (1800ms). Trace: " + trace.join(" > ")));
+                reject(new Error("Live API handshake timeout (3500ms). Trace: " + trace.join(" > ")));
             }
-        }, 1800);
+        }, 3500);
 
         const audioChunks = [];
         let accumulatedText = "";
@@ -138,13 +140,29 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
             ws.addEventListener("open", sendSetup);
         }
 
-        ws.addEventListener("message", (event) => {
+        ws.addEventListener("message", async (event) => {
             if (isDone) return;
             try {
-                let data;
+                let rawText = "";
                 if (typeof event.data === "string") {
-                    data = JSON.parse(event.data);
+                    rawText = event.data;
+                } else if (event.data instanceof ArrayBuffer) {
+                    rawText = new TextDecoder().decode(event.data);
+                } else if (event.data && typeof event.data.text === "function") {
+                    rawText = await event.data.text();
+                } else if (event.data && typeof event.data.arrayBuffer === "function") {
+                    const buf = await event.data.arrayBuffer();
+                    rawText = new TextDecoder().decode(buf);
                 } else {
+                    trace.push("unknown_msg_data:" + typeof event.data);
+                    return;
+                }
+
+                let data;
+                try {
+                    data = JSON.parse(rawText);
+                } catch(parseErr) {
+                    trace.push("json_parse_err");
                     return;
                 }
 
@@ -164,9 +182,9 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                         if (!isDone) {
                             isDone = true;
                             try { ws.close(); } catch(e){}
-                            reject(new Error("Live API audio generation timeout. Trace: " + trace.join(" > ")));
+                            reject(new Error("Live API audio generation timeout (6000ms). Trace: " + trace.join(" > ")));
                         }
-                    }, 4000);
+                    }, 6000);
 
                     trace.push("sending_query");
                     if (userAudio) {
