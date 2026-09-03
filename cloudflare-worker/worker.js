@@ -190,52 +190,66 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             // 2. Synthesize Gemini Native Studio Voice Audio
             let outputAudioData = null;
             let outputAudioMime = null;
+            let lastTtsError = "";
 
-            try {
-                const ttsModel = "models/gemini-2.0-flash";
-                const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/${ttsModel}:generateContent?key=${apiKey}`;
-                const ttsRes = await fetch(ttsUrl, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                role: "user",
-                                parts: [{ text: `Speak this answer concisely in an authentic, natural voice:\n${replyText}` }]
-                            }
-                        ],
-                        generationConfig: {
-                            responseModalities: ["AUDIO"],
-                            speechConfig: {
-                                voiceConfig: {
-                                    prebuiltVoiceConfig: {
-                                        voiceName: "Puck"
+            const audioCandidates = [
+                "models/gemini-2.5-flash",
+                "models/gemini-2.0-flash",
+                "models/gemini-2.0-flash-exp",
+                ...candidateModels
+            ];
+
+            for (const ttsModel of audioCandidates) {
+                const cleanTts = ttsModel.startsWith("models/") ? ttsModel : `models/${ttsModel}`;
+                const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanTts}:generateContent?key=${apiKey}`;
+
+                try {
+                    const ttsRes = await fetch(ttsUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [
+                                {
+                                    role: "user",
+                                    parts: [{ text: `Speak this answer concisely in an authentic, natural voice:\n${replyText}` }]
+                                }
+                            ],
+                            generationConfig: {
+                                responseModalities: ["AUDIO"],
+                                speechConfig: {
+                                    voiceConfig: {
+                                        prebuiltVoiceConfig: {
+                                            voiceName: "Puck"
+                                        }
                                     }
                                 }
                             }
-                        }
-                    })
-                });
+                        })
+                    });
 
-                if (ttsRes.ok) {
-                    const ttsJson = await ttsRes.json();
-                    const audioPart = ttsJson.candidates?.[0]?.content?.parts?.find(p => p.inlineData || p.inline_data);
-                    if (audioPart) {
-                        const blob = audioPart.inlineData || audioPart.inline_data;
-                        outputAudioData = blob.data;
-                        outputAudioMime = blob.mimeType || blob.mime_type || "audio/wav";
+                    if (ttsRes.ok) {
+                        const ttsJson = await ttsRes.json();
+                        const audioPart = ttsJson.candidates?.[0]?.content?.parts?.find(p => p.inlineData || p.inline_data);
+                        if (audioPart) {
+                            const blob = audioPart.inlineData || audioPart.inline_data;
+                            outputAudioData = blob.data;
+                            outputAudioMime = blob.mimeType || blob.mime_type || "audio/wav";
+                            break;
+                        }
+                    } else {
+                        lastTtsError = await ttsRes.text();
+                        console.warn(`TTS error for ${cleanTts}:`, lastTtsError);
                     }
-                } else {
-                    console.warn("Gemini Audio Generation error:", await ttsRes.text());
+                } catch (e) {
+                    lastTtsError = e.message;
                 }
-            } catch (ttsErr) {
-                console.warn("TTS Error:", ttsErr);
             }
 
             return new Response(JSON.stringify({ 
                 reply: replyText,
                 audio: outputAudioData,
-                audioMime: outputAudioMime
+                audioMime: outputAudioMime,
+                ttsDebug: outputAudioData ? null : lastTtsError
             }), {
                 status: 200,
                 headers: { "Content-Type": "application/json", ...corsHeaders(request) },
