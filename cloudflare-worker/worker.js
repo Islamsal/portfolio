@@ -84,99 +84,71 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
 `;
 
             const apiKey = (env.GEMINI_API_KEY || "").trim();
-            
-            // 1. Discover available models for this specific API key (with 2026 latest models)
-            let candidateModels = [
-                "models/gemini-2.5-flash",
+            const modelsToTry = [
                 "models/gemini-2.0-flash",
-                "models/gemini-2.0-flash-lite",
                 "models/gemini-1.5-flash-latest",
-                "models/gemini-1.5-pro-latest"
+                "models/gemini-2.0-flash-lite"
             ];
 
-            try {
-                const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-                if (listRes.ok) {
-                    const listData = await listRes.json();
-                    if (listData.models && listData.models.length > 0) {
-                        const supported = listData.models.filter(m => 
-                            m.supportedGenerationMethods && 
-                            m.supportedGenerationMethods.includes("generateContent")
-                        );
-                        if (supported.length > 0) {
-                            // Sort so flash models are prioritized for fast response time
-                            supported.sort((a, b) => {
-                                const aFlash = a.name.includes("flash") ? 1 : 0;
-                                const bFlash = b.name.includes("flash") ? 1 : 0;
-                                return bFlash - aFlash;
-                            });
-                            candidateModels = supported.map(m => m.name);
-                        }
+            const userParts = [];
+            if (userAudio) {
+                userParts.push({
+                    text: userMessage 
+                        ? `User note: ${userMessage}. Answer the spoken audio question concisely according to your strict instructions:` 
+                        : "Listen to the user's spoken audio question and answer it concisely according to your strict instructions:"
+                });
+                userParts.push({
+                    inlineData: {
+                        mimeType: audioMime,
+                        data: userAudio
                     }
-                }
-            } catch (err) {
-                console.warn("Could not dynamically query models, using defaults:", err);
+                });
+            } else {
+                userParts.push({ text: userMessage });
             }
+
+            const payloadBody = JSON.stringify({
+                system_instruction: {
+                    parts: [{ text: systemInstruction }]
+                },
+                contents: [
+                    {
+                        role: "user",
+                        parts: userParts
+                    }
+                ],
+                generationConfig: {
+                    temperature: 0.2,
+                    maxOutputTokens: 140,
+                }
+            });
 
             let response = null;
             let lastErrText = "";
             let usedModel = "";
 
-            for (const modelName of candidateModels) {
-                const cleanModel = modelName.startsWith("models/") ? modelName : `models/${modelName}`;
-                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanModel}:generateContent?key=${apiKey}`;
-                usedModel = cleanModel;
-
-                const userParts = [];
-                if (userAudio) {
-                    userParts.push({
-                        text: userMessage 
-                            ? `User query note: ${userMessage}. Answer the user's spoken audio question according to your strict knowledge instructions:` 
-                            : "Listen to the user's spoken audio question and answer it concisely according to your strict knowledge instructions:"
-                    });
-                    userParts.push({
-                        inlineData: {
-                            mimeType: audioMime,
-                            data: userAudio
-                        }
-                    });
-                } else {
-                    userParts.push({ text: userMessage });
-                }
+            for (const modelName of modelsToTry) {
+                usedModel = modelName;
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
 
                 response = await fetch(geminiUrl, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        system_instruction: {
-                            parts: [{ text: systemInstruction }]
-                        },
-                        contents: [
-                            {
-                                role: "user",
-                                parts: userParts
-                            }
-                        ],
-                        generationConfig: {
-                            temperature: 0.2,
-                            maxOutputTokens: 300,
-                        }
-                    })
+                    body: payloadBody
                 });
 
                 if (response.ok) {
                     break;
                 } else {
                     lastErrText = await response.text();
-                    console.error(`Gemini (${cleanModel}) Error:`, lastErrText);
+                    console.error(`Gemini (${modelName}) Error:`, lastErrText);
                 }
             }
 
             if (!response || !response.ok) {
                 return new Response(JSON.stringify({
                     reply: "Unable to reach Gemini dialog engine at the moment. Please try again or reach Eso at eso@esodevelops.com.",
-                    details: lastErrText,
-                    triedModel: usedModel
+                    details: lastErrText
                 }), {
                     status: 200,
                     headers: { "Content-Type": "application/json", ...corsHeaders(request) },
@@ -187,69 +159,52 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
                 "This information is not available on this site. You can check Eso's updates directly on X (@EsoUpdates) or LinkedIn.";
 
-            // 2. Synthesize Gemini Native Studio Voice Audio
+            // 2. Direct Studio Audio Voice Generation (Direct hit on the active model)
             let outputAudioData = null;
             let outputAudioMime = null;
-            let lastTtsError = "";
 
-            const audioCandidates = [
-                "models/gemini-2.5-flash",
-                "models/gemini-2.0-flash",
-                "models/gemini-2.0-flash-exp",
-                ...candidateModels
-            ];
-
-            for (const ttsModel of audioCandidates) {
-                const cleanTts = ttsModel.startsWith("models/") ? ttsModel : `models/${ttsModel}`;
-                const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanTts}:generateContent?key=${apiKey}`;
-
-                try {
-                    const ttsRes = await fetch(ttsUrl, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            contents: [
-                                {
-                                    role: "user",
-                                    parts: [{ text: `Speak this answer concisely in an authentic, natural voice:\n${replyText}` }]
-                                }
-                            ],
-                            generationConfig: {
-                                responseModalities: ["AUDIO"],
-                                speechConfig: {
-                                    voiceConfig: {
-                                        prebuiltVoiceConfig: {
-                                            voiceName: "Puck"
-                                        }
+            try {
+                const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/${usedModel}:generateContent?key=${apiKey}`;
+                const ttsRes = await fetch(ttsUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [
+                            {
+                                role: "user",
+                                parts: [{ text: `Speak this answer concisely in an authentic, natural voice:\n${replyText}` }]
+                            }
+                        ],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: {
+                                        voiceName: "Puck"
                                     }
                                 }
                             }
-                        })
-                    });
-
-                    if (ttsRes.ok) {
-                        const ttsJson = await ttsRes.json();
-                        const audioPart = ttsJson.candidates?.[0]?.content?.parts?.find(p => p.inlineData || p.inline_data);
-                        if (audioPart) {
-                            const blob = audioPart.inlineData || audioPart.inline_data;
-                            outputAudioData = blob.data;
-                            outputAudioMime = blob.mimeType || blob.mime_type || "audio/wav";
-                            break;
                         }
-                    } else {
-                        lastTtsError = await ttsRes.text();
-                        console.warn(`TTS error for ${cleanTts}:`, lastTtsError);
+                    })
+                });
+
+                if (ttsRes.ok) {
+                    const ttsJson = await ttsRes.json();
+                    const audioPart = ttsJson.candidates?.[0]?.content?.parts?.find(p => p.inlineData || p.inline_data);
+                    if (audioPart) {
+                        const blob = audioPart.inlineData || audioPart.inline_data;
+                        outputAudioData = blob.data;
+                        outputAudioMime = blob.mimeType || blob.mime_type || "audio/l16; rate=24000";
                     }
-                } catch (e) {
-                    lastTtsError = e.message;
                 }
+            } catch (ttsErr) {
+                console.warn("TTS Error:", ttsErr);
             }
 
             return new Response(JSON.stringify({ 
                 reply: replyText,
                 audio: outputAudioData,
-                audioMime: outputAudioMime,
-                ttsDebug: outputAudioData ? null : lastTtsError
+                audioMime: outputAudioMime
             }), {
                 status: 200,
                 headers: { "Content-Type": "application/json", ...corsHeaders(request) },
