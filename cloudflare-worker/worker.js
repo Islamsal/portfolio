@@ -81,34 +81,83 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
    - Keep answers focused, typically 1 to 3 sentences unless a deeper breakdown is requested.
 `;
 
-            // Call Google Gemini 1.5 Flash API
-            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+            const apiKey = (env.GEMINI_API_KEY || "").trim();
+            
+            // 1. Discover available models for this specific API key (with 2026 latest models)
+            let candidateModels = [
+                "models/gemini-2.5-flash",
+                "models/gemini-2.0-flash",
+                "models/gemini-2.0-flash-lite",
+                "models/gemini-1.5-flash-latest",
+                "models/gemini-1.5-pro-latest"
+            ];
 
-            const response = await fetch(geminiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    system_instruction: {
-                        parts: [{ text: systemInstruction }]
-                    },
-                    contents: [
-                        {
-                            role: "user",
-                            parts: [{ text: userMessage }]
+            try {
+                const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                if (listRes.ok) {
+                    const listData = await listRes.json();
+                    if (listData.models && listData.models.length > 0) {
+                        const supported = listData.models.filter(m => 
+                            m.supportedGenerationMethods && 
+                            m.supportedGenerationMethods.includes("generateContent")
+                        );
+                        if (supported.length > 0) {
+                            // Sort so flash models are prioritized for fast response time
+                            supported.sort((a, b) => {
+                                const aFlash = a.name.includes("flash") ? 1 : 0;
+                                const bFlash = b.name.includes("flash") ? 1 : 0;
+                                return bFlash - aFlash;
+                            });
+                            candidateModels = supported.map(m => m.name);
                         }
-                    ],
-                    generationConfig: {
-                        temperature: 0.2, // Low temperature for high accuracy & strict adherence
-                        maxOutputTokens: 300,
                     }
-                })
-            });
+                }
+            } catch (err) {
+                console.warn("Could not dynamically query models, using defaults:", err);
+            }
 
-            if (!response.ok) {
-                const errText = await response.text();
-                console.error("Gemini API Error:", errText);
+            let response = null;
+            let lastErrText = "";
+            let usedModel = "";
+
+            for (const modelName of candidateModels) {
+                const cleanModel = modelName.startsWith("models/") ? modelName : `models/${modelName}`;
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanModel}:generateContent?key=${apiKey}`;
+                usedModel = cleanModel;
+
+                response = await fetch(geminiUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        system_instruction: {
+                            parts: [{ text: systemInstruction }]
+                        },
+                        contents: [
+                            {
+                                role: "user",
+                                parts: [{ text: userMessage }]
+                            }
+                        ],
+                        generationConfig: {
+                            temperature: 0.2,
+                            maxOutputTokens: 300,
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    break;
+                } else {
+                    lastErrText = await response.text();
+                    console.error(`Gemini (${cleanModel}) Error:`, lastErrText);
+                }
+            }
+
+            if (!response || !response.ok) {
                 return new Response(JSON.stringify({
-                    reply: "Unable to reach Gemini dialog engine at the moment. Please try again or reach Eso at eso@esodevelops.com."
+                    reply: "Unable to reach Gemini dialog engine at the moment. Please try again or reach Eso at eso@esodevelops.com.",
+                    details: lastErrText,
+                    triedModel: usedModel
                 }), {
                     status: 200,
                     headers: { "Content-Type": "application/json", ...corsHeaders(request) },
