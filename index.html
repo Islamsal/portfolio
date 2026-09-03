@@ -2206,36 +2206,6 @@
             }, speed);
         };
 
-        // Strict knowledge evaluator (Enforces exact guardrails)
-        const localKnowledgeEvaluate = (query) => {
-            const q = query.toLowerCase();
-
-            if (q.includes("bloat") || q.includes("philosophy") || q.includes("overhead") || q.includes("stance") || q.includes("craft")) {
-                return "Eso stands for low-overhead engineering. Modern computers are fast enough for day-to-day workflows; rather than rebuilding from scratch for trends, he focuses on leveraging existing tools, writing self-contained software, and fighting unnecessary software bloat.";
-            }
-            if (q.includes("local") || q.includes("cloud") || q.includes("offline")) {
-                return "Eso's core stance is 'Local by Default'. Software should remain useful when disconnected. The cloud is treated as an optional synchronization layer, not an inescapable dependency.";
-            }
-            if (q.includes("learning") || q.includes("mindset") || q.includes("process") || q.includes("fail")) {
-                return "Eso views learning as a lifelong process driven by curiosity, effort, and patience. Time spent on unpublished work or failed experiments is treated as valuable experience that keeps him passionate about craft.";
-            }
-            if (q.includes("workflow") || q.includes("automation") || q.includes("scripts")) {
-                return "Eso builds personal automation workflows: custom CLI tools, data pipelines, and hotkey chains designed to remove daily friction and let him ship on his own clock.";
-            }
-            if (q.includes("portfolio") || q.includes("this site") || q.includes("stack") || q.includes("framework")) {
-                return "This portfolio is built with raw HTML, vanilla CSS, and vanilla JS with zero frameworks. It features a custom 120 FPS binary dust canvas engine and a GPU circular reality portal theme toggle.";
-            }
-            if (q.includes("contact") || q.includes("email") || q.includes("reach") || q.includes("hire") || q.includes("talk")) {
-                return "You can reach Eso directly at eso@esodevelops.com. He is always open to questions, ideas, and authentic conversations.";
-            }
-            if (q.includes("social") || q.includes("x") || q.includes("twitter") || q.includes("linkedin") || q.includes("github") || q.includes("reddit") || q.includes("quora")) {
-                return "You can connect with Eso across the web: LinkedIn (islam-salem-a1120b432), X (@EsoUpdates), Reddit, Quora, and GitHub.";
-            }
-
-            // Strictly enforced out-of-bounds reply:
-            return "This information is not available on this site. If Eso has authored a post about this on his official channels, you can check his updates directly on X (@EsoUpdates) or LinkedIn (Islam Salem).";
-        };
-
         // ----------------------------------------------------
         // ----------------------------------------------------
         // VOICE OUTPUT: Dual-Engine (SpeechSynthesis + HTML5 Audio Stream)
@@ -2479,16 +2449,11 @@
                         return;
                     }
                 } catch (err) {
-                    console.warn("Cloudflare Worker error, falling back to local engine:", err);
+                    console.warn("Cloudflare Worker error:", err);
                 }
             }
 
-            // Local fallback engine with identical strict guardrails
-            setTimeout(() => {
-                const answer = localKnowledgeEvaluate(text);
-                streamTypewriter(botMsg, answer);
-                speakAiResponse(answer);
-            }, 350);
+            streamTypewriter(botMsg, "Unable to reach Gemini dialog engine. Please try again or reach Eso at eso@esodevelops.com.");
         };
 
         if (aiForm) {
@@ -2609,8 +2574,7 @@
                                 console.warn("Worker audio query error:", err);
                             }
                         }
-                        streamTypewriter(botMsg, "Audio received! Eso is a CS student focused on low-overhead systems and local-first software. Reach him at eso@esodevelops.com.");
-                        speakAiResponse("Eso is a CS student focused on low overhead systems and local first software.");
+                        streamTypewriter(botMsg, "Unable to process audio query at this time. Please try typing or contact Eso at eso@esodevelops.com.");
                     };
                     reader.readAsDataURL(audioBlob);
                 };
