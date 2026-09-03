@@ -2353,32 +2353,45 @@
                 // Gemini Native audio format: linear 16-bit PCM at 24000 Hz
                 if (!mime || mime.includes("l16") || mime.includes("pcm")) {
                     const sampleRate = 24000;
-                    const int16 = new Int16Array(bytes.buffer);
+                    const sampleCount = Math.floor(bytes.length / 2);
+                    if (sampleCount === 0) return;
+
                     const AudioCtx = window.AudioContext || window.webkitAudioContext;
                     if (!window.__aiAudioCtx) {
                         window.__aiAudioCtx = new AudioCtx({ sampleRate });
                     }
-                    if (window.__aiAudioCtx.state === 'suspended') {
-                        window.__aiAudioCtx.resume();
-                    }
 
-                    const buffer = window.__aiAudioCtx.createBuffer(1, int16.length, sampleRate);
-                    const channelData = buffer.getChannelData(0);
-                    for (let i = 0; i < int16.length; i++) {
-                        channelData[i] = int16[i] / 32768.0;
-                    }
+                    const playBuffer = () => {
+                        try {
+                            const buffer = window.__aiAudioCtx.createBuffer(1, sampleCount, sampleRate);
+                            const channelData = buffer.getChannelData(0);
+                            const dataView = new DataView(bytes.buffer, bytes.byteOffset, sampleCount * 2);
+                            for (let i = 0; i < sampleCount; i++) {
+                                channelData[i] = dataView.getInt16(i * 2, true) / 32768.0;
+                            }
 
-                    const source = window.__aiAudioCtx.createBufferSource();
-                    source.buffer = buffer;
-                    source.connect(window.__aiAudioCtx.destination);
-                    window.__currentPcmSource = source;
+                            const source = window.__aiAudioCtx.createBufferSource();
+                            source.buffer = buffer;
+                            source.connect(window.__aiAudioCtx.destination);
+                            window.__currentPcmSource = source;
 
-                    source.onended = () => {
-                        aiWidget.classList.remove("speaking");
+                            source.onended = () => {
+                                aiWidget.classList.remove("speaking");
+                            };
+
+                            aiWidget.classList.add("speaking");
+                            source.start(0);
+                        } catch (pcmErr) {
+                            console.warn("PCM buffer playback error:", pcmErr);
+                            aiWidget.classList.remove("speaking");
+                        }
                     };
 
-                    aiWidget.classList.add("speaking");
-                    source.start(0);
+                    if (window.__aiAudioCtx.state === 'suspended') {
+                        window.__aiAudioCtx.resume().then(playBuffer).catch(playBuffer);
+                    } else {
+                        playBuffer();
+                    }
                     return;
                 }
 

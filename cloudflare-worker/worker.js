@@ -143,6 +143,22 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
             ws.addEventListener("open", sendSetup);
         }
 
+        const finishWithAudio = () => {
+            if (isDone) return;
+            isDone = true;
+            clearTimeout(activeTimeout);
+            try { ws.close(); } catch(e){}
+
+            const finalAudio = concatBase64Chunks(audioChunks);
+            resolve({
+                reply: accumulatedText.trim() || "Audio response generated.",
+                audio: finalAudio,
+                audioMime: "audio/l16; rate=24000; channels=1",
+                engine: "Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited)",
+                debugLiveErr: trace.join(" > ")
+            });
+        };
+
         ws.addEventListener("message", async (event) => {
             if (isDone) return;
             try {
@@ -183,11 +199,15 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                     clearTimeout(activeTimeout);
                     activeTimeout = setTimeout(() => {
                         if (!isDone) {
-                            isDone = true;
-                            try { ws.close(); } catch(e){}
-                            reject(new Error("Live API audio generation timeout (6000ms). Trace: " + trace.join(" > ")));
+                            if (audioChunks.length > 0) {
+                                finishWithAudio();
+                            } else {
+                                isDone = true;
+                                try { ws.close(); } catch(e){}
+                                reject(new Error("Live API audio generation timeout. Trace: " + trace.join(" > ")));
+                            }
                         }
-                    }, 6000);
+                    }, 5000);
 
                     trace.push("sending_query");
                     if (userAudio) {
@@ -223,7 +243,6 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
 
                 if (data.serverContent?.modelTurn?.parts) {
                     for (const part of data.serverContent.modelTurn.parts) {
-                        trace.push("p:" + JSON.stringify(part).substring(0, 60));
                         if (part.thought) continue;
                         if (part.text) {
                             accumulatedText += part.text;
@@ -237,20 +256,18 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                     }
                 }
 
-                if (data.serverContent?.turnComplete) {
-                    trace.push("done_audio:" + audioChunks.length);
-                    isDone = true;
+                // Whenever audio chunks are streaming, reset idle debounce timer
+                if (audioChunks.length > 0) {
                     clearTimeout(activeTimeout);
-                    try { ws.close(); } catch(e){}
+                    activeTimeout = setTimeout(() => {
+                        // After 800ms of silence after audio arrives, complete speech!
+                        finishWithAudio();
+                    }, 800);
+                }
 
-                    const finalAudio = concatBase64Chunks(audioChunks);
-                    resolve({
-                        reply: accumulatedText.trim() || "System online. Ready to talk code, systems, and low-overhead software.",
-                        audio: finalAudio,
-                        audioMime: "audio/l16; rate=24000; channels=1",
-                        engine: "Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited)",
-                        debugLiveErr: trace.join(" > ")
-                    });
+                if (data.serverContent?.turnComplete || data.serverContent?.generationComplete) {
+                    trace.push("complete_signal");
+                    finishWithAudio();
                 }
             } catch(e) {
                 console.warn("Live API message parse error:", e);
@@ -259,25 +276,24 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
 
         ws.addEventListener("error", (err) => {
             if (!isDone) {
-                isDone = true;
-                clearTimeout(activeTimeout);
-                try { ws.close(); } catch(e){}
-                reject(err);
+                if (audioChunks.length > 0) {
+                    finishWithAudio();
+                } else {
+                    isDone = true;
+                    clearTimeout(activeTimeout);
+                    try { ws.close(); } catch(e){}
+                    reject(err);
+                }
             }
         });
 
         ws.addEventListener("close", (event) => {
             if (!isDone) {
-                isDone = true;
-                clearTimeout(activeTimeout);
                 if (audioChunks.length > 0) {
-                    resolve({
-                        reply: accumulatedText.trim() || "System online.",
-                        audio: concatBase64Chunks(audioChunks),
-                        audioMime: "audio/l16; rate=24000; channels=1",
-                        engine: "Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited)"
-                    });
+                    finishWithAudio();
                 } else {
+                    isDone = true;
+                    clearTimeout(activeTimeout);
                     const code = event ? event.code : "none";
                     const reason = event ? (event.reason || "none") : "none";
                     reject(new Error(`Live API closed before content. Code: ${code}, Reason: ${reason}`));
