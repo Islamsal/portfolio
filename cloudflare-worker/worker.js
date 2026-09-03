@@ -46,6 +46,7 @@ function concatBase64Chunks(chunks) {
 async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, systemPrompt }) {
     return new Promise(async (resolve, reject) => {
         let isDone = false;
+        const trace = [];
         const liveModel = "models/gemini-2.5-flash-native-audio-preview-09-2025";
         const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
 
@@ -54,46 +55,56 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
 
         // Method A: Cloudflare Workers native fetch with Upgrade header
         try {
+            trace.push("attempt_fetch_upgrade");
             const wsRes = await fetch(wsUrl, {
                 headers: { "Upgrade": "websocket" }
             });
+            trace.push("fetch_status_" + wsRes.status);
             if (wsRes && wsRes.webSocket) {
                 ws = wsRes.webSocket;
                 ws.accept();
                 isAlreadyOpen = true;
+                trace.push("ws_accepted");
+            } else {
+                trace.push("no_websocket_in_res");
             }
         } catch (fetchErr) {
+            trace.push("fetch_err:" + fetchErr.message);
             console.warn("fetch websocket upgrade error:", fetchErr);
         }
 
         // Method B: Standard global WebSocket client fallback
         if (!ws) {
             try {
+                trace.push("attempt_new_websocket");
                 if (typeof WebSocket !== "undefined") {
                     ws = new WebSocket(wsUrl);
+                    trace.push("new_ws_created");
                 }
             } catch (wsErr) {
+                trace.push("new_ws_err:" + wsErr.message);
                 console.warn("new WebSocket constructor error:", wsErr);
             }
         }
 
         if (!ws) {
-            return reject(new Error("Cloudflare Worker outbound WebSocket client not available in this runtime"));
+            return reject(new Error("Cloudflare Worker outbound WebSocket client not available: " + trace.join(" > ")));
         }
 
         const timeout = setTimeout(() => {
             if (!isDone) {
                 isDone = true;
                 try { ws.close(); } catch(e){}
-                reject(new Error("Live API timeout after 7500ms"));
+                reject(new Error("Live API timeout after 2000ms. Trace: " + trace.join(" > ")));
             }
-        }, 7500);
+        }, 2000);
 
         const audioChunks = [];
         let accumulatedText = "";
 
         const sendSetup = () => {
             try {
+                trace.push("setup_sent");
                 const setupMsg = {
                     setup: {
                         model: liveModel,
@@ -114,6 +125,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                 };
                 ws.send(JSON.stringify(setupMsg));
             } catch (err) {
+                trace.push("setup_err:" + err.message);
                 console.warn("Send setup error:", err);
             }
         };
@@ -126,6 +138,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
 
         ws.addEventListener("message", (event) => {
             if (isDone) return;
+            trace.push("msg_received");
             try {
                 let data;
                 if (typeof event.data === "string") {
