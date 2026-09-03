@@ -114,6 +114,9 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                         model: liveModel,
                         generationConfig: {
                             responseModalities: ["AUDIO"],
+                            thinkingConfig: {
+                                thinkingBudget: 0
+                            },
                             speechConfig: {
                                 voiceConfig: {
                                     prebuiltVoiceConfig: {
@@ -214,19 +217,28 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                     return;
                 }
 
+                if (data.serverContent?.outputTranscription?.text) {
+                    accumulatedText += data.serverContent.outputTranscription.text;
+                }
+
                 if (data.serverContent?.modelTurn?.parts) {
-                    trace.push("parts:" + data.serverContent.modelTurn.parts.length);
                     for (const part of data.serverContent.modelTurn.parts) {
-                        if (part.text) accumulatedText += part.text;
-                        const inline = part.inlineData || part.inline_data;
-                        if (inline?.data) {
-                            audioChunks.push(inline.data);
+                        trace.push("p:" + JSON.stringify(part).substring(0, 60));
+                        if (part.thought) continue;
+                        if (part.text) {
+                            accumulatedText += part.text;
+                        }
+                        const inline = part.inlineData || part.inline_data || part.blob;
+                        if (inline && (inline.data || inline.bytes)) {
+                            audioChunks.push(inline.data || inline.bytes);
+                        } else if (part.data) {
+                            audioChunks.push(part.data);
                         }
                     }
                 }
 
                 if (data.serverContent?.turnComplete) {
-                    trace.push("turn_complete_audio:" + audioChunks.length);
+                    trace.push("done_audio:" + audioChunks.length);
                     isDone = true;
                     clearTimeout(activeTimeout);
                     try { ws.close(); } catch(e){}
@@ -236,7 +248,8 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                         reply: accumulatedText.trim() || "System online. Ready to talk code, systems, and low-overhead software.",
                         audio: finalAudio,
                         audioMime: "audio/l16; rate=24000; channels=1",
-                        engine: "Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited)"
+                        engine: "Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited)",
+                        debugLiveErr: trace.join(" > ")
                     });
                 }
             } catch(e) {
