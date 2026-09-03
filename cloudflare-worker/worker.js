@@ -414,10 +414,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             // 2. Direct Studio Audio Voice Generation (Uses verified audio-capable Gemini models)
             let outputAudioData = null;
             let outputAudioMime = null;
-            let debugTtsLog = [];
             const ttsCandidates = [
-                "models/gemini-2.5-flash-native-audio-latest",
-                "models/gemini-2.5-flash-native-audio-preview-09-2025",
                 "models/gemini-2.0-flash",
                 "models/gemini-2.5-flash-preview-tts",
                 "models/gemini-3.1-flash-tts-preview"
@@ -456,23 +453,18 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                             const blob = audioPart.inlineData || audioPart.inline_data;
                             outputAudioData = blob.data;
                             outputAudioMime = blob.mimeType || blob.mime_type || "audio/l16; rate=24000; channels=1";
-                            debugTtsLog.push({ model: ttsModel, status: ttsRes.status, success: true });
                             break;
                         }
-                    } else {
-                        const errTxt = await ttsRes.text();
-                        debugTtsLog.push({ model: ttsModel, status: ttsRes.status, error: errTxt.substring(0, 150) });
                     }
                 } catch (ttsErr) {
-                    debugTtsLog.push({ model: ttsModel, error: ttsErr.message });
+                    console.warn(`Fallback TTS Error on ${ttsModel}:`, ttsErr.message || ttsErr);
                 }
             }
 
             return new Response(JSON.stringify({ 
                 reply: replyText,
                 audio: outputAudioData,
-                audioMime: outputAudioMime,
-                debugTTS: debugTtsLog
+                audioMime: outputAudioMime
             }), {
                 status: 200,
                 headers: { "Content-Type": "application/json", ...corsHeaders(request) },
