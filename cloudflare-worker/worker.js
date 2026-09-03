@@ -8,6 +8,8 @@
  */
 
 let cachedModels = null;
+const responseCache = new Map();
+const MAX_CACHE_ITEMS = 60;
 
 function base64ToUint8(b64) {
     const bin = atob(b64);
@@ -260,9 +262,9 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                 if (audioChunks.length > 0) {
                     clearTimeout(activeTimeout);
                     activeTimeout = setTimeout(() => {
-                        // After 800ms of silence after audio arrives, complete speech!
+                        // 450ms of quiet after speech finishes delivers audio immediately
                         finishWithAudio();
-                    }, 800);
+                    }, 450);
                 }
 
                 if (data.serverContent?.turnComplete || data.serverContent?.generationComplete) {
@@ -334,6 +336,15 @@ export default {
                 });
             }
 
+            const cleanQuery = userMessage.toLowerCase().trim().replace(/[?!.,]/g, "");
+            if (cleanQuery && !userAudio && responseCache.has(cleanQuery)) {
+                const cached = responseCache.get(cleanQuery);
+                return new Response(JSON.stringify({ ...cached, cached: true }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+                });
+            }
+
             if (!env.GEMINI_API_KEY) {
                 return new Response(JSON.stringify({
                     reply: "Error: GEMINI_API_KEY secret is not set in Cloudflare Worker environment variables."
@@ -386,9 +397,10 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
      * NEVER invent, guess, or hallucinate facts about Eso, his life, or his work.
      * Only refer to Eso himself and what he personally writes.
 
-3. TONE & MANNER:
-   - Direct, authentic, humble, technical, and concise (hacker vibes, no corporate fluff, no buzzwords).
-   - Keep answers focused, typically 1 to 3 sentences unless a deeper breakdown is requested.
+3. VOICE & BREVITY (CRITICAL FOR REAL-TIME AUDIO SPEED):
+   - You are speaking aloud in real-time. KEEP SPOKEN REPLIES TO 1 OR 2 CRISP, PUNCHY SENTENCES (UNDER 30 WORDS TOTAL).
+   - Deliver the direct answer immediately. Never lecture, recite preambles, or generate long lists.
+   - Example: Instead of explaining each pillar with multiple paragraphs, state: "Eso builds around three pillars: Local by Default, Low Overhead without bloat, and learning through failure."
 `;
 
             // ----------------------------------------------------
@@ -407,6 +419,19 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                 });
 
                 if (liveResult && (liveResult.audio || liveResult.reply)) {
+                    if (cleanQuery && !userAudio && liveResult.audio) {
+                        if (responseCache.size >= MAX_CACHE_ITEMS) {
+                            const oldest = responseCache.keys().next().value;
+                            responseCache.delete(oldest);
+                        }
+                        responseCache.set(cleanQuery, {
+                            reply: liveResult.reply,
+                            audio: liveResult.audio,
+                            audioMime: liveResult.audioMime,
+                            engine: liveResult.engine
+                        });
+                    }
+
                     return new Response(JSON.stringify({
                         reply: liveResult.reply,
                         audio: liveResult.audio,
@@ -487,7 +512,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                 ],
                 generationConfig: {
                     temperature: 0.2,
-                    maxOutputTokens: 180,
+                    maxOutputTokens: 75,
                 }
             });
 
@@ -549,7 +574,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                             contents: [
                                 {
                                     role: "user",
-                                    parts: [{ text: `Speak this answer concisely in an authentic, natural voice:\n${replyText}` }]
+                                    parts: [{ text: `Speak in a natural, authentic voice in 1-2 crisp sentences:\n${replyText}` }]
                                 }
                             ],
                             generationConfig: {
@@ -578,6 +603,19 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                 } catch (ttsErr) {
                     console.warn(`Fallback TTS Error on ${ttsModel}:`, ttsErr.message || ttsErr);
                 }
+            }
+
+            if (cleanQuery && !userAudio && outputAudioData) {
+                if (responseCache.size >= MAX_CACHE_ITEMS) {
+                    const oldest = responseCache.keys().next().value;
+                    responseCache.delete(oldest);
+                }
+                responseCache.set(cleanQuery, {
+                    reply: replyText,
+                    audio: outputAudioData,
+                    audioMime: outputAudioMime,
+                    engine: usedModel + " + Aoede HD"
+                });
             }
 
             return new Response(JSON.stringify({ 

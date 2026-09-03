@@ -2421,9 +2421,22 @@
             }
         };
 
+        const warmAudioContext = () => {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!window.__aiAudioCtx) {
+                    window.__aiAudioCtx = new AudioCtx({ sampleRate: 24000 });
+                }
+                if (window.__aiAudioCtx.state === 'suspended') {
+                    window.__aiAudioCtx.resume().catch(()=>{});
+                }
+            } catch(e){}
+        };
+
         // Submit Text Question
         const handleAiSubmit = async (e) => {
             if (e) e.preventDefault();
+            warmAudioContext();
             const text = aiInput.value.trim();
             if (!text) return;
 
