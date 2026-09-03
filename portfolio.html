@@ -208,25 +208,28 @@
         .brand {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            font-family: var(--font-mono);
-            font-size: 15px;
-            font-weight: 500;
+            justify-content: center;
+            padding: 4px;
             color: var(--text-primary);
             text-decoration: none;
-            letter-spacing: 0.05em;
+            border-radius: 6px;
+            transition: opacity 0.2s ease;
+        }
+
+        .brand:hover {
+            opacity: 0.95;
         }
 
         .brand-logo {
-            width: 20px;
-            height: 20px;
+            width: 26px;
+            height: 26px;
             flex-shrink: 0;
             display: block;
         }
 
         .brand-logo .logo-bar {
             fill: var(--text-primary);
-            transition: x 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+            transition: x 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease, fill 0.3s ease;
         }
 
         .brand-logo .logo-bar-middle {
@@ -239,11 +242,6 @@
 
         .brand:hover .logo-bar {
             filter: drop-shadow(0 0 6px var(--accent));
-        }
-
-        .brand em {
-            color: var(--accent);
-            font-style: normal;
         }
 
         .nav-links {
@@ -1498,13 +1496,12 @@
     <!-- 2. Header & Navigation -->
     <header class="site-header">
         <div class="header-inner">
-            <a href="#" class="brand" aria-label="EsoDevelops Home">
+            <a href="#" class="brand" aria-label="EsoDevelops Home" title="EsoDevelops">
                 <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-hidden="true">
                     <rect class="logo-bar" x="15" y="12" width="70" height="16" rx="8" />
                     <rect class="logo-bar logo-bar-middle" x="35" y="42" width="50" height="16" rx="8" />
                     <rect class="logo-bar" x="15" y="72" width="70" height="16" rx="8" />
                 </svg>
-                <span><em>~/</em>ESO</span>
             </a>
             <nav class="nav-links">
                 <a href="#work">WORK</a>
