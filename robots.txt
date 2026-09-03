@@ -1,0 +1,25 @@
+# robots.txt for https://esodevelops.com
+User-agent: *
+Allow: /
+
+# Explicitly allow leading AI search engines and research crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+# Sitemap location
+Sitemap: https://esodevelops.com/sitemap.xml
