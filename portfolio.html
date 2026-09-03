@@ -1404,6 +1404,42 @@
             color: #ff5c5c;
             animation: pulseDot 1s infinite;
         }
+
+        /* AI Auto-Focus & Holographic Spotlight Animation */
+        .ai-spotlight {
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 0 0 1px var(--accent), 0 0 30px rgba(0, 255, 102, 0.35) !important;
+            border-color: var(--accent) !important;
+            transform: scale(1.018);
+            z-index: 10;
+        }
+
+        .ai-spotlight::after {
+            content: "⚡ AI SPOTLIGHT";
+            position: absolute;
+            top: -10px;
+            right: 14px;
+            background: var(--accent);
+            color: #000;
+            font-family: var(--font-mono);
+            font-size: 8.5px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 3px;
+            letter-spacing: 0.8px;
+            box-shadow: 0 0 14px rgba(0, 255, 102, 0.55);
+            animation: pulseDot 1.2s infinite;
+            pointer-events: none;
+        }
+
+        [data-theme="light"] .ai-spotlight {
+            box-shadow: 0 0 0 1.5px var(--accent), 0 0 24px rgba(10, 10, 10, 0.2) !important;
+        }
+        [data-theme="light"] .ai-spotlight::after {
+            background: var(--accent);
+            color: #fff;
+        }
     </style>
 </head>
 
@@ -2207,6 +2243,49 @@
         };
 
         // ----------------------------------------------------
+        // AI AUTO-FOCUS: Semantic page navigation & Holographic spotlight
+        // ----------------------------------------------------
+        let activeSpotlightElement = null;
+
+        const triggerSiteNavigationForQuery = (query, answerText) => {
+            const combined = ((query || "") + " " + (answerText || "")).toLowerCase();
+            let targetEl = null;
+
+            if (activeSpotlightElement) {
+                activeSpotlightElement.classList.remove("ai-spotlight");
+                activeSpotlightElement = null;
+            }
+
+            if (combined.includes("bloat") || combined.includes("overhead") || combined.includes("craft") || combined.includes("sluggish") || combined.includes("anti-bloat")) {
+                const pillars = document.querySelectorAll(".pillar-card");
+                if (pillars.length >= 2) targetEl = pillars[1];
+            } else if (combined.includes("local") || combined.includes("offline") || combined.includes("cloud") || combined.includes("airplane")) {
+                const pillars = document.querySelectorAll(".pillar-card");
+                if (pillars.length >= 1) targetEl = pillars[0];
+            } else if (combined.includes("learning") || combined.includes("mindset") || combined.includes("fail") || combined.includes("growth") || combined.includes("patience")) {
+                const pillars = document.querySelectorAll(".pillar-card");
+                if (pillars.length >= 3) targetEl = pillars[2];
+            } else if (combined.includes("project") || combined.includes("portfolio") || combined.includes("dust") || combined.includes("workflow") || combined.includes("automation") || combined.includes("framework")) {
+                targetEl = document.getElementById("work");
+            } else if (combined.includes("contact") || combined.includes("email") || combined.includes("hire") || combined.includes("reach") || combined.includes("talk") || combined.includes("eso@")) {
+                targetEl = document.getElementById("emailDock") || document.getElementById("contact");
+            } else if (combined.includes("social") || combined.includes("twitter") || combined.includes("linkedin") || combined.includes("github") || combined.includes("x (") || combined.includes("@esoupdates")) {
+                targetEl = document.getElementById("inlineSocials") || document.getElementById("connectZone");
+            }
+
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                targetEl.classList.add("ai-spotlight");
+                activeSpotlightElement = targetEl;
+
+                setTimeout(() => {
+                    if (targetEl && targetEl.classList.contains("ai-spotlight")) {
+                        targetEl.classList.remove("ai-spotlight");
+                    }
+                }, 8500);
+            }
+        };
+
         // ----------------------------------------------------
         // VOICE OUTPUT: Dual-Engine (SpeechSynthesis + HTML5 Audio Stream)
         // ----------------------------------------------------
@@ -2440,6 +2519,7 @@
                     });
                     const data = await res.json();
                     if (data && data.reply) {
+                        triggerSiteNavigationForQuery(text, data.reply);
                         streamTypewriter(botMsg, data.reply);
                         if (data.audio) {
                             playNativeGeminiAudio(data.audio, data.audioMime);
@@ -2562,6 +2642,7 @@
                                 });
                                 const data = await res.json();
                                 if (data && data.reply) {
+                                    triggerSiteNavigationForQuery(liveTranscript || "", data.reply);
                                     streamTypewriter(botMsg, data.reply);
                                     if (data.audio) {
                                         playNativeGeminiAudio(data.audio, data.audioMime);
