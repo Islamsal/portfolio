@@ -44,16 +44,41 @@ function concatBase64Chunks(chunks) {
  * Model: Gemini 2.5 Flash Native Audio Dialog (Live API: Unlimited Free Quota)
  */
 async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, systemPrompt }) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         let isDone = false;
         const liveModel = "models/gemini-2.5-flash-native-audio-preview-09-2025";
-        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
 
-        let ws;
+        let ws = null;
+        let isAlreadyOpen = false;
+
+        // Method A: Cloudflare Workers native fetch with Upgrade header
         try {
-            ws = new WebSocket(wsUrl);
-        } catch(err) {
-            return reject(err);
+            const wsRes = await fetch(wsUrl, {
+                headers: { "Upgrade": "websocket" }
+            });
+            if (wsRes && wsRes.webSocket) {
+                ws = wsRes.webSocket;
+                ws.accept();
+                isAlreadyOpen = true;
+            }
+        } catch (fetchErr) {
+            console.warn("fetch websocket upgrade error:", fetchErr);
+        }
+
+        // Method B: Standard global WebSocket client fallback
+        if (!ws) {
+            try {
+                if (typeof WebSocket !== "undefined") {
+                    ws = new WebSocket(wsUrl);
+                }
+            } catch (wsErr) {
+                console.warn("new WebSocket constructor error:", wsErr);
+            }
+        }
+
+        if (!ws) {
+            return reject(new Error("Cloudflare Worker outbound WebSocket client not available in this runtime"));
         }
 
         const timeout = setTimeout(() => {
@@ -67,28 +92,37 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
         const audioChunks = [];
         let accumulatedText = "";
 
-        ws.addEventListener("open", () => {
-            // Send setup handshake
-            const setupMsg = {
-                setup: {
-                    model: liveModel,
-                    generationConfig: {
-                        responseModalities: ["AUDIO", "TEXT"],
-                        speechConfig: {
-                            voiceConfig: {
-                                prebuiltVoiceConfig: {
-                                    voiceName: "Puck"
+        const sendSetup = () => {
+            try {
+                const setupMsg = {
+                    setup: {
+                        model: liveModel,
+                        generationConfig: {
+                            responseModalities: ["AUDIO", "TEXT"],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: {
+                                        voiceName: "Puck"
+                                    }
                                 }
                             }
+                        },
+                        systemInstruction: {
+                            parts: [{ text: systemPrompt }]
                         }
-                    },
-                    systemInstruction: {
-                        parts: [{ text: systemPrompt }]
                     }
-                }
-            };
-            ws.send(JSON.stringify(setupMsg));
-        });
+                };
+                ws.send(JSON.stringify(setupMsg));
+            } catch (err) {
+                console.warn("Send setup error:", err);
+            }
+        };
+
+        if (isAlreadyOpen) {
+            sendSetup();
+        } else {
+            ws.addEventListener("open", sendSetup);
+        }
 
         ws.addEventListener("message", (event) => {
             if (isDone) return;
