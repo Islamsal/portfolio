@@ -114,7 +114,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                             speechConfig: {
                                 voiceConfig: {
                                     prebuiltVoiceConfig: {
-                                        voiceName: "Puck"
+                                        voiceName: "Aoede"
                                     }
                                 }
                             }
@@ -509,7 +509,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                                 speechConfig: {
                                     voiceConfig: {
                                         prebuiltVoiceConfig: {
-                                            voiceName: "Puck"
+                                            voiceName: "Aoede"
                                         }
                                     }
                                 }

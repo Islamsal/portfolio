@@ -2272,11 +2272,14 @@
                         utterance.pitch = 1.0;
 
                         const naturalVoice = voices.find(v => v.lang.startsWith("en") && (
-                            v.name.includes("Natural") || 
-                            v.name.includes("Google") || 
                             v.name.includes("Samantha") ||
-                            v.name.includes("Daniel") ||
-                            v.name.includes("English")
+                            v.name.includes("Victoria") ||
+                            v.name.includes("Jenny") ||
+                            v.name.includes("Zira") ||
+                            v.name.includes("Karen") ||
+                            v.name.includes("Female") ||
+                            v.name.includes("Natural") || 
+                            v.name.includes("Google")
                         )) || voices.find(v => v.lang.startsWith("en"));
                         if (naturalVoice) utterance.voice = naturalVoice;
 
