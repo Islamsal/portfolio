@@ -277,6 +277,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             // Model: models/gemini-2.5-flash-native-audio-preview-09-2025
             // Free Tier Quota: UNLIMITED (0 / Unlimited in Google AI Studio)
             // ----------------------------------------------------
+            let primaryLiveError = null;
             try {
                 const liveResult = await requestGeminiLiveAudio({
                     apiKey,
@@ -298,7 +299,8 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                     });
                 }
             } catch (liveErr) {
-                console.warn("Primary Live API Audio Engine fallback to REST:", liveErr.message || liveErr);
+                primaryLiveError = liveErr.message || String(liveErr);
+                console.warn("Primary Live API Audio Engine fallback to REST:", primaryLiveError);
             }
 
             // ----------------------------------------------------
@@ -318,8 +320,10 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                             if (supported.length > 0) {
                                 // Prioritize flash-lite models for highest daily quota (500 RPD) and low latency
                                 supported.sort((a, b) => {
-                                    const aLite = a.includes("flash-lite") ? 2 : (a.includes("flash") ? 1 : 0);
-                                    const bLite = b.includes("flash-lite") ? 2 : (b.includes("flash") ? 1 : 0);
+                                    const aName = a.name || "";
+                                    const bName = b.name || "";
+                                    const aLite = aName.includes("flash-lite") ? 2 : (aName.includes("flash") ? 1 : 0);
+                                    const bLite = bName.includes("flash-lite") ? 2 : (bName.includes("flash") ? 1 : 0);
                                     return bLite - aLite;
                                 });
                                 cachedModels = supported.map(m => m.name);
@@ -333,7 +337,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
 
             const candidateModels = (cachedModels && cachedModels.length > 0) 
                 ? cachedModels 
-                : ["models/gemini-2.0-flash", "models/gemini-1.5-flash-latest"];
+                : ["models/gemini-2.0-flash"];
 
             const userParts = [];
             if (userAudio) {
