@@ -1215,6 +1215,34 @@
             font-weight: 600;
         }
 
+        .ai-header-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .ai-voice-toggle-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            line-height: 1;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            opacity: 0.85;
+        }
+
+        .ai-voice-toggle-btn:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+
+        .ai-voice-toggle-btn.muted {
+            opacity: 0.35;
+            filter: grayscale(1);
+        }
+
         .ai-close-btn {
             background: transparent;
             border: none;
@@ -1249,9 +1277,10 @@
             transition: height 0.1s ease;
         }
 
-        /* Animated sound wave when listening or thinking */
+        /* Animated sound wave when listening, thinking, or speaking */
         .ai-widget.listening .sound-bar,
-        .ai-widget.generating .sound-bar {
+        .ai-widget.generating .sound-bar,
+        .ai-widget.speaking .sound-bar {
             animation: soundWave 0.75s infinite ease-in-out alternate;
         }
 
@@ -1707,7 +1736,10 @@
         <div class="ai-console" id="aiConsole" role="region" aria-label="Ask AI dialog">
             <div class="ai-header">
                 <span class="ai-title">~/eso · AI DIALOG [RESTRICTED]</span>
-                <button type="button" class="ai-close-btn" id="aiCloseBtn" aria-label="Close Ask AI">✕</button>
+                <div class="ai-header-controls">
+                    <button type="button" class="ai-voice-toggle-btn" id="aiVoiceToggle" title="Audio Speech Output (Click to mute/unmute)" aria-label="Toggle AI voice output">🔊</button>
+                    <button type="button" class="ai-close-btn" id="aiCloseBtn" aria-label="Close Ask AI">✕</button>
+                </div>
             </div>
 
             <!-- Straight Line Sound Movement Visualizer -->
@@ -2204,7 +2236,58 @@
             return "This information is not available on this site. If Eso has authored a post about this on his official channels, you can check his updates directly on X (@EsoUpdates) or LinkedIn (Islam Salem).";
         };
 
-        // Submit Question
+        // ----------------------------------------------------
+        // VOICE OUTPUT: Web Speech Synthesis (Speaks replies out loud)
+        // ----------------------------------------------------
+        let isVoiceOutputEnabled = true;
+        const aiVoiceToggle = document.getElementById("aiVoiceToggle");
+
+        if (aiVoiceToggle) {
+            aiVoiceToggle.addEventListener("click", () => {
+                isVoiceOutputEnabled = !isVoiceOutputEnabled;
+                if (!isVoiceOutputEnabled && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
+                aiVoiceToggle.textContent = isVoiceOutputEnabled ? "🔊" : "🔇";
+                aiVoiceToggle.classList.toggle("muted", !isVoiceOutputEnabled);
+                aiVoiceToggle.title = isVoiceOutputEnabled ? "Voice Output: ON (Click to mute)" : "Voice Output: MUTED (Click to unmute)";
+            });
+        }
+
+        const speakAiResponse = (text) => {
+            if (!isVoiceOutputEnabled || !('speechSynthesis' in window)) return;
+            try {
+                window.speechSynthesis.cancel();
+                // Strip markdown formatting and URLs for natural pronunciation
+                const cleanText = text.replace(/https?:\/\/\S+/g, "").replace(/[*_#`~]/g, "").trim();
+                if (!cleanText) return;
+
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.rate = 1.05;
+                utterance.pitch = 1.0;
+
+                const voices = window.speechSynthesis.getVoices();
+                const naturalVoice = voices.find(v => v.lang.startsWith("en") && (
+                    v.name.includes("Natural") || 
+                    v.name.includes("Google") || 
+                    v.name.includes("Samantha") ||
+                    v.name.includes("Daniel") ||
+                    v.name.includes("English")
+                )) || voices.find(v => v.lang.startsWith("en"));
+                if (naturalVoice) utterance.voice = naturalVoice;
+
+                utterance.onstart = () => aiWidget.classList.add("speaking");
+                utterance.onend = () => aiWidget.classList.remove("speaking");
+                utterance.onerror = () => aiWidget.classList.remove("speaking");
+
+                window.speechSynthesis.speak(utterance);
+            } catch (err) {
+                console.warn("SpeechSynthesis error:", err);
+                aiWidget.classList.remove("speaking");
+            }
+        };
+
+        // Submit Text Question
         const handleAiSubmit = async (e) => {
             if (e) e.preventDefault();
             const text = aiInput.value.trim();
@@ -2226,6 +2309,7 @@
                     const data = await res.json();
                     if (data && data.reply) {
                         streamTypewriter(botMsg, data.reply);
+                        speakAiResponse(data.reply);
                         return;
                     }
                 } catch (err) {
@@ -2237,6 +2321,7 @@
             setTimeout(() => {
                 const answer = localKnowledgeEvaluate(text);
                 streamTypewriter(botMsg, answer);
+                speakAiResponse(answer);
             }, 350);
         };
 
@@ -2244,50 +2329,154 @@
             aiForm.addEventListener("submit", handleAiSubmit);
         }
 
-        // Native Speech Recognition Engine (Zero Dependencies)
-        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRec && aiMicBtn) {
-            const recognition = new SpeechRec();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = "en-US";
+        // ----------------------------------------------------
+        // VOICE INPUT: Universal WebRTC MediaRecorder + SpeechRecognition
+        // ----------------------------------------------------
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecordingAudio = false;
+        let activeStream = null;
+        let liveTranscript = "";
 
-            recognition.onstart = () => {
+        // Optional live preview transcription
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        if (SpeechRec) {
+            try {
+                recognition = new SpeechRec();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = "en-US";
+                recognition.onresult = (event) => {
+                    let interim = "";
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        interim += event.results[i][0].transcript;
+                    }
+                    if (interim) {
+                        liveTranscript = interim;
+                        aiInput.value = interim;
+                    }
+                };
+                recognition.onerror = (e) => {
+                    console.warn("Speech recognition network error (MediaRecorder handles audio):", e.error);
+                };
+            } catch (e) {
+                recognition = null;
+            }
+        }
+
+        const startVoiceInput = async () => {
+            try {
+                activeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioChunks = [];
+                liveTranscript = "";
+
+                let mimeType = 'audio/webm';
+                if (!MediaRecorder.isTypeSupported('audio/webm')) {
+                    if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+                    else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
+                    else mimeType = '';
+                }
+
+                mediaRecorder = mimeType ? new MediaRecorder(activeStream, { mimeType }) : new MediaRecorder(activeStream);
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) audioChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = async () => {
+                    if (activeStream) {
+                        activeStream.getTracks().forEach(t => t.stop());
+                        activeStream = null;
+                    }
+                    if (recognition) {
+                        try { recognition.stop(); } catch(e){}
+                    }
+
+                    aiWidget.classList.remove("listening");
+                    aiMicBtn.classList.remove("active");
+                    aiInput.placeholder = "ask a question or click mic...";
+                    isRecordingAudio = false;
+
+                    const finalTranscript = (liveTranscript || aiInput.value).trim();
+
+                    // If live transcription caught text, send as fast text query
+                    if (finalTranscript) {
+                        aiInput.value = finalTranscript;
+                        handleAiSubmit();
+                        return;
+                    }
+
+                    // Otherwise, send the recorded raw audio directly to Gemini
+                    if (audioChunks.length === 0) return;
+                    const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+                    if (audioBlob.size < 1500) return; // Ignore accidental clicks under ~1 sec
+
+                    appendAiMsg("🎙️ [Spoken audio question sent...]", "user");
+                    aiInput.value = "";
+                    aiWidget.classList.add("generating");
+                    const botMsg = appendAiMsg("...", "bot");
+
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                        const base64Audio = reader.result.split(',')[1];
+                        if (CF_WORKER_URL) {
+                            try {
+                                const res = await fetch(CF_WORKER_URL, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ 
+                                        audio: base64Audio,
+                                        mimeType: audioBlob.type || "audio/webm"
+                                    })
+                                });
+                                const data = await res.json();
+                                if (data && data.reply) {
+                                    streamTypewriter(botMsg, data.reply);
+                                    speakAiResponse(data.reply);
+                                    return;
+                                }
+                            } catch (err) {
+                                console.warn("Worker audio query error:", err);
+                            }
+                        }
+                        streamTypewriter(botMsg, "Audio received! Eso is a CS student focused on low-overhead systems and local-first software. Reach him at eso@esodevelops.com.");
+                        speakAiResponse("Eso is a CS student focused on low overhead systems and local first software.");
+                    };
+                    reader.readAsDataURL(audioBlob);
+                };
+
+                mediaRecorder.start();
+                isRecordingAudio = true;
                 aiWidget.classList.add("listening");
                 aiMicBtn.classList.add("active");
-                aiInput.placeholder = "Listening... speak now";
-            };
+                aiInput.placeholder = "🔴 Listening... click mic again to send";
 
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                if (transcript) {
-                    aiInput.value = transcript;
-                    handleAiSubmit();
+                if (recognition) {
+                    try { recognition.start(); } catch(e){}
                 }
-            };
-
-            recognition.onerror = () => {
+            } catch (err) {
+                console.warn("Microphone access error:", err);
+                appendAiMsg("⚠️ Microphone access required. Please allow microphone permissions in your browser bar.", "bot");
                 aiWidget.classList.remove("listening");
                 aiMicBtn.classList.remove("active");
                 aiInput.placeholder = "ask a question or click mic...";
-            };
+            }
+        };
 
-            recognition.onend = () => {
-                aiWidget.classList.remove("listening");
-                aiMicBtn.classList.remove("active");
-                aiInput.placeholder = "ask a question or click mic...";
-            };
+        const stopVoiceInput = () => {
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+        };
 
+        if (aiMicBtn) {
             aiMicBtn.addEventListener("click", () => {
-                if (aiWidget.classList.contains("listening")) {
-                    recognition.stop();
+                if (isRecordingAudio) {
+                    stopVoiceInput();
                 } else {
-                    recognition.start();
+                    startVoiceInput();
                 }
             });
-        } else if (aiMicBtn) {
-            aiMicBtn.title = "Voice recognition not supported in this browser";
-            aiMicBtn.style.opacity = "0.4";
         }
     </script>
 </body>

@@ -28,9 +28,11 @@ export default {
         try {
             const body = await request.json();
             const userMessage = (body.message || "").trim();
+            const userAudio = body.audio || null; // base64 encoded audio
+            const audioMime = body.mimeType || "audio/webm";
 
-            if (!userMessage) {
-                return new Response(JSON.stringify({ error: "Empty message" }), {
+            if (!userMessage && !userAudio) {
+                return new Response(JSON.stringify({ error: "Empty message or audio" }), {
                     status: 400,
                     headers: { "Content-Type": "application/json", ...corsHeaders(request) },
                 });
@@ -125,6 +127,23 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                 const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanModel}:generateContent?key=${apiKey}`;
                 usedModel = cleanModel;
 
+                const userParts = [];
+                if (userAudio) {
+                    userParts.push({
+                        text: userMessage 
+                            ? `User query note: ${userMessage}. Answer the user's spoken audio question according to your strict knowledge instructions:` 
+                            : "Listen to the user's spoken audio question and answer it concisely according to your strict knowledge instructions:"
+                    });
+                    userParts.push({
+                        inlineData: {
+                            mimeType: audioMime,
+                            data: userAudio
+                        }
+                    });
+                } else {
+                    userParts.push({ text: userMessage });
+                }
+
                 response = await fetch(geminiUrl, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -135,7 +154,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                         contents: [
                             {
                                 role: "user",
-                                parts: [{ text: userMessage }]
+                                parts: userParts
                             }
                         ],
                         generationConfig: {
