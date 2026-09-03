@@ -97,8 +97,6 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
    - Keep answers focused, typically 1 to 3 sentences unless a deeper breakdown is requested.
 `;
 
-            const apiKey = (env.GEMINI_API_KEY || "").trim();
-
             // Fast In-Memory Cached Model Discovery (Discovers exact working models on key, then caches in RAM)
             if (!cachedModels || cachedModels.length === 0) {
                 try {
