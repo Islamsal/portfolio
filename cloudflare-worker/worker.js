@@ -47,16 +47,16 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
     return new Promise(async (resolve, reject) => {
         let isDone = false;
         const trace = [];
-        const liveModel = "models/gemini-2.5-flash-native-audio-preview-09-2025";
-        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+        const fetchUpgradeUrl = `https://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
 
         let ws = null;
         let isAlreadyOpen = false;
 
-        // Method A: Cloudflare Workers native fetch with Upgrade header
+        // Method A: Cloudflare Workers native fetch with Upgrade header (requires https:// scheme)
         try {
             trace.push("attempt_fetch_upgrade");
-            const wsRes = await fetch(wsUrl, {
+            const wsRes = await fetch(fetchUpgradeUrl, {
                 headers: { "Upgrade": "websocket" }
             });
             trace.push("fetch_status_" + wsRes.status);
@@ -91,13 +91,14 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
             return reject(new Error("Cloudflare Worker outbound WebSocket client not available: " + trace.join(" > ")));
         }
 
-        const timeout = setTimeout(() => {
+        let hasReceivedSetupComplete = false;
+        let activeTimeout = setTimeout(() => {
             if (!isDone) {
                 isDone = true;
                 try { ws.close(); } catch(e){}
-                reject(new Error("Live API timeout after 5000ms. Trace: " + trace.join(" > ")));
+                reject(new Error("Live API handshake timeout (1800ms). Trace: " + trace.join(" > ")));
             }
-        }, 5000);
+        }, 1800);
 
         const audioChunks = [];
         let accumulatedText = "";
@@ -150,12 +151,22 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
 
                 if (data.error) {
                     isDone = true;
-                    clearTimeout(timeout);
+                    clearTimeout(activeTimeout);
                     try { ws.close(); } catch(e){}
                     return reject(new Error("Live API Error: " + (data.error.message || JSON.stringify(data.error))));
                 }
 
                 if (data.setupComplete || data.setup_complete) {
+                    hasReceivedSetupComplete = true;
+                    clearTimeout(activeTimeout);
+                    activeTimeout = setTimeout(() => {
+                        if (!isDone) {
+                            isDone = true;
+                            try { ws.close(); } catch(e){}
+                            reject(new Error("Live API audio generation timeout. Trace: " + trace.join(" > ")));
+                        }
+                    }, 4000);
+
                     trace.push("sending_query");
                     if (userAudio) {
                         ws.send(JSON.stringify({
@@ -198,7 +209,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
                 if (data.serverContent?.turnComplete) {
                     trace.push("turn_complete_audio:" + audioChunks.length);
                     isDone = true;
-                    clearTimeout(timeout);
+                    clearTimeout(activeTimeout);
                     try { ws.close(); } catch(e){}
 
                     const finalAudio = concatBase64Chunks(audioChunks);
@@ -217,7 +228,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
         ws.addEventListener("error", (err) => {
             if (!isDone) {
                 isDone = true;
-                clearTimeout(timeout);
+                clearTimeout(activeTimeout);
                 try { ws.close(); } catch(e){}
                 reject(err);
             }
@@ -226,7 +237,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
         ws.addEventListener("close", (event) => {
             if (!isDone) {
                 isDone = true;
-                clearTimeout(timeout);
+                clearTimeout(activeTimeout);
                 if (audioChunks.length > 0) {
                     resolve({
                         reply: accumulatedText.trim() || "System online.",
