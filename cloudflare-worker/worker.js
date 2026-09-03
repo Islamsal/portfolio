@@ -498,7 +498,8 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             return new Response(JSON.stringify({ 
                 reply: replyText,
                 audio: outputAudioData,
-                audioMime: outputAudioMime
+                audioMime: outputAudioMime,
+                debugLiveErr: primaryLiveError
             }), {
                 status: 200,
                 headers: { "Content-Type": "application/json", ...corsHeaders(request) },
