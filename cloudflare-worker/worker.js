@@ -200,46 +200,54 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
                 "This information is not available on this site. You can check Eso's updates directly on X (@EsoUpdates) or LinkedIn.";
 
-            // 2. Direct Studio Audio Voice Generation (Uses the verified working model)
+            // 2. Direct Studio Audio Voice Generation (Uses verified audio-capable Gemini models)
             let outputAudioData = null;
             let outputAudioMime = null;
+            const ttsCandidates = [
+                "models/gemini-2.0-flash",
+                "models/gemini-2.5-flash-preview-tts",
+                "models/gemini-3.1-flash-tts-preview"
+            ];
 
-            try {
-                const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/${usedModel}:generateContent?key=${apiKey}`;
-                const ttsRes = await fetch(ttsUrl, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                role: "user",
-                                parts: [{ text: `Speak this answer concisely in an authentic, natural voice:\n${replyText}` }]
-                            }
-                        ],
-                        generationConfig: {
-                            responseModalities: ["AUDIO"],
-                            speechConfig: {
-                                voiceConfig: {
-                                    prebuiltVoiceConfig: {
-                                        voiceName: "Puck"
+            for (const ttsModel of ttsCandidates) {
+                try {
+                    const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/${ttsModel}:generateContent?key=${apiKey}`;
+                    const ttsRes = await fetch(ttsUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [
+                                {
+                                    role: "user",
+                                    parts: [{ text: `Speak this answer concisely in an authentic, natural voice:\n${replyText}` }]
+                                }
+                            ],
+                            generationConfig: {
+                                responseModalities: ["AUDIO"],
+                                speechConfig: {
+                                    voiceConfig: {
+                                        prebuiltVoiceConfig: {
+                                            voiceName: "Puck"
+                                        }
                                     }
                                 }
                             }
-                        }
-                    })
-                });
+                        })
+                    });
 
-                if (ttsRes.ok) {
-                    const ttsJson = await ttsRes.json();
-                    const audioPart = ttsJson.candidates?.[0]?.content?.parts?.find(p => p.inlineData || p.inline_data);
-                    if (audioPart) {
-                        const blob = audioPart.inlineData || audioPart.inline_data;
-                        outputAudioData = blob.data;
-                        outputAudioMime = blob.mimeType || blob.mime_type || "audio/l16; rate=24000";
+                    if (ttsRes.ok) {
+                        const ttsJson = await ttsRes.json();
+                        const audioPart = ttsJson.candidates?.[0]?.content?.parts?.find(p => p.inlineData || p.inline_data);
+                        if (audioPart) {
+                            const blob = audioPart.inlineData || audioPart.inline_data;
+                            outputAudioData = blob.data;
+                            outputAudioMime = blob.mimeType || blob.mime_type || "audio/l16; rate=24000; channels=1";
+                            break;
+                        }
                     }
+                } catch (ttsErr) {
+                    console.warn(`TTS Error on ${ttsModel}:`, ttsErr);
                 }
-            } catch (ttsErr) {
-                console.warn("TTS Error:", ttsErr);
             }
 
             return new Response(JSON.stringify({ 
