@@ -188,8 +188,8 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                 "This information is not available on this site. You can check Eso's updates directly on X (@EsoUpdates) or LinkedIn.";
 
             // 2. Synthesize Gemini Native Studio Voice Audio
-            let audioData = null;
-            let audioMime = null;
+            let outputAudioData = null;
+            let outputAudioMime = null;
 
             try {
                 const ttsModel = "models/gemini-2.0-flash";
@@ -222,8 +222,8 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                     const audioPart = ttsJson.candidates?.[0]?.content?.parts?.find(p => p.inlineData || p.inline_data);
                     if (audioPart) {
                         const blob = audioPart.inlineData || audioPart.inline_data;
-                        audioData = blob.data;
-                        audioMime = blob.mimeType || blob.mime_type || "audio/wav";
+                        outputAudioData = blob.data;
+                        outputAudioMime = blob.mimeType || blob.mime_type || "audio/wav";
                     }
                 } else {
                     console.warn("Gemini Audio Generation error:", await ttsRes.text());
@@ -234,8 +234,8 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
 
             return new Response(JSON.stringify({ 
                 reply: replyText,
-                audio: audioData,
-                audioMime: audioMime
+                audio: outputAudioData,
+                audioMime: outputAudioMime
             }), {
                 status: 200,
                 headers: { "Content-Type": "application/json", ...corsHeaders(request) },
