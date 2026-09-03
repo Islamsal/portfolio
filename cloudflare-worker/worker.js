@@ -47,6 +47,7 @@ async function requestGeminiLiveAudio({ apiKey, userText, userAudio, audioMime, 
     return new Promise(async (resolve, reject) => {
         let isDone = false;
         const trace = [];
+        const liveModel = "models/gemini-2.5-flash-native-audio-preview-09-2025";
         const fetchUpgradeUrl = `https://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
         const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${apiKey}`;
 
