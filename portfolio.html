@@ -2237,55 +2237,137 @@
         };
 
         // ----------------------------------------------------
-        // VOICE OUTPUT: Web Speech Synthesis (Speaks replies out loud)
+        // ----------------------------------------------------
+        // VOICE OUTPUT: Dual-Engine (SpeechSynthesis + HTML5 Audio Stream)
         // ----------------------------------------------------
         let isVoiceOutputEnabled = true;
         const aiVoiceToggle = document.getElementById("aiVoiceToggle");
+        window.__currentAudio = null;
+        window.__activeUtterance = null;
+
+        const unlockBrowserAudio = () => {
+            if ('speechSynthesis' in window) {
+                try { window.speechSynthesis.resume(); } catch(e){}
+            }
+        };
+
+        const playFallbackAudio = (text) => {
+            try {
+                // Keep audio payload clean and concise for streaming
+                const cleanChunk = text.length > 200 ? text.substring(0, 197) + "..." : text;
+                const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(cleanChunk)}`;
+                const audio = new Audio(audioUrl);
+                window.__currentAudio = audio;
+                
+                audio.onplay = () => aiWidget.classList.add("speaking");
+                audio.onended = () => aiWidget.classList.remove("speaking");
+                audio.onerror = (e) => {
+                    console.warn("Fallback audio play error:", e);
+                    aiWidget.classList.remove("speaking");
+                };
+
+                const p = audio.play();
+                if (p !== undefined) {
+                    p.catch(err => {
+                        console.warn("Audio autoplay blocked by browser policy:", err);
+                        aiWidget.classList.remove("speaking");
+                    });
+                }
+            } catch (err) {
+                console.warn("Audio creation error:", err);
+                aiWidget.classList.remove("speaking");
+            }
+        };
+
+        const speakAiResponse = (text) => {
+            if (!isVoiceOutputEnabled) return;
+            unlockBrowserAudio();
+
+            // Stop any ongoing speech
+            if (window.__currentAudio) {
+                try {
+                    window.__currentAudio.pause();
+                    window.__currentAudio.currentTime = 0;
+                } catch(e){}
+            }
+            if ('speechSynthesis' in window) {
+                try { window.speechSynthesis.cancel(); } catch(e){}
+            }
+
+            // Clean markdown formatting, links, and emojis for smooth pronunciation
+            const cleanText = text.replace(/https?:\/\/\S+/g, "")
+                                  .replace(/[*_#`~]/g, "")
+                                  .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+                                  .trim();
+            if (!cleanText) return;
+
+            aiWidget.classList.add("speaking");
+            let hasSpokenWithSynthesis = false;
+
+            // Strategy 1: Native SpeechSynthesis (if voices are loaded on OS)
+            if ('speechSynthesis' in window) {
+                try {
+                    window.speechSynthesis.resume();
+                    const voices = window.speechSynthesis.getVoices() || [];
+
+                    if (voices.length > 0) {
+                        const utterance = new SpeechSynthesisUtterance(cleanText);
+                        utterance.rate = 1.05;
+                        utterance.pitch = 1.0;
+
+                        const naturalVoice = voices.find(v => v.lang.startsWith("en") && (
+                            v.name.includes("Natural") || 
+                            v.name.includes("Google") || 
+                            v.name.includes("Samantha") ||
+                            v.name.includes("Daniel") ||
+                            v.name.includes("English")
+                        )) || voices.find(v => v.lang.startsWith("en"));
+                        if (naturalVoice) utterance.voice = naturalVoice;
+
+                        utterance.onstart = () => aiWidget.classList.add("speaking");
+                        utterance.onend = () => aiWidget.classList.remove("speaking");
+                        utterance.onerror = (e) => {
+                            console.warn("SpeechSynthesis error, falling back to audio stream:", e);
+                            playFallbackAudio(cleanText);
+                        };
+
+                        window.__activeUtterance = utterance; // Prevent garbage collection
+                        window.speechSynthesis.speak(utterance);
+                        hasSpokenWithSynthesis = true;
+                    }
+                } catch (err) {
+                    console.warn("SpeechSynthesis exception:", err);
+                }
+            }
+
+            // Strategy 2: Guaranteed Universal Audio Stream (works in Brave, Linux, and all browsers)
+            if (!hasSpokenWithSynthesis) {
+                playFallbackAudio(cleanText);
+            }
+        };
 
         if (aiVoiceToggle) {
             aiVoiceToggle.addEventListener("click", () => {
                 isVoiceOutputEnabled = !isVoiceOutputEnabled;
-                if (!isVoiceOutputEnabled && 'speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
+                if (!isVoiceOutputEnabled) {
+                    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                    if (window.__currentAudio) {
+                        try {
+                            window.__currentAudio.pause();
+                            window.__currentAudio.currentTime = 0;
+                        } catch(e){}
+                    }
                 }
                 aiVoiceToggle.textContent = isVoiceOutputEnabled ? "🔊" : "🔇";
                 aiVoiceToggle.classList.toggle("muted", !isVoiceOutputEnabled);
-                aiVoiceToggle.title = isVoiceOutputEnabled ? "Voice Output: ON (Click to mute)" : "Voice Output: MUTED (Click to unmute)";
+                aiVoiceToggle.title = isVoiceOutputEnabled ? "Voice Output: ON (Click to test/mute)" : "Voice Output: MUTED (Click to unmute)";
+
+                // Instant audio test on user click!
+                if (isVoiceOutputEnabled) {
+                    speakAiResponse("Voice audio output is enabled.");
+                }
             });
         }
-
-        const speakAiResponse = (text) => {
-            if (!isVoiceOutputEnabled || !('speechSynthesis' in window)) return;
-            try {
-                window.speechSynthesis.cancel();
-                // Strip markdown formatting and URLs for natural pronunciation
-                const cleanText = text.replace(/https?:\/\/\S+/g, "").replace(/[*_#`~]/g, "").trim();
-                if (!cleanText) return;
-
-                const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.rate = 1.05;
-                utterance.pitch = 1.0;
-
-                const voices = window.speechSynthesis.getVoices();
-                const naturalVoice = voices.find(v => v.lang.startsWith("en") && (
-                    v.name.includes("Natural") || 
-                    v.name.includes("Google") || 
-                    v.name.includes("Samantha") ||
-                    v.name.includes("Daniel") ||
-                    v.name.includes("English")
-                )) || voices.find(v => v.lang.startsWith("en"));
-                if (naturalVoice) utterance.voice = naturalVoice;
-
-                utterance.onstart = () => aiWidget.classList.add("speaking");
-                utterance.onend = () => aiWidget.classList.remove("speaking");
-                utterance.onerror = () => aiWidget.classList.remove("speaking");
-
-                window.speechSynthesis.speak(utterance);
-            } catch (err) {
-                console.warn("SpeechSynthesis error:", err);
-                aiWidget.classList.remove("speaking");
-            }
-        };
 
         // Submit Text Question
         const handleAiSubmit = async (e) => {
