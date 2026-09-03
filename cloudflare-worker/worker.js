@@ -7,6 +7,8 @@
  * - Routes out-of-bounds questions ONLY to Eso's personal authored posts
  */
 
+let cachedModels = null;
+
 export default {
     async fetch(request, env) {
         // Handle CORS Preflight
@@ -42,6 +44,18 @@ export default {
                 return new Response(JSON.stringify({
                     reply: "Error: GEMINI_API_KEY secret is not set in Cloudflare Worker environment variables."
                 }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json", ...corsHeaders(request) },
+                });
+            }
+
+            const apiKey = (env.GEMINI_API_KEY || "").trim();
+
+            // Diagnostic endpoint to inspect exact model availability
+            if (userMessage === "__MODELS__") {
+                const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                const listData = await listRes.json();
+                return new Response(JSON.stringify(listData), {
                     status: 200,
                     headers: { "Content-Type": "application/json", ...corsHeaders(request) },
                 });
@@ -84,17 +98,43 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
 `;
 
             const apiKey = (env.GEMINI_API_KEY || "").trim();
-            const modelsToTry = [
-                "models/gemini-2.0-flash",
-                "models/gemini-1.5-flash-latest",
-                "models/gemini-2.0-flash-lite"
-            ];
+
+            // Fast In-Memory Cached Model Discovery (Discovers exact working models on key, then caches in RAM)
+            if (!cachedModels || cachedModels.length === 0) {
+                try {
+                    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                    if (listRes.ok) {
+                        const listData = await listRes.json();
+                        if (listData.models && listData.models.length > 0) {
+                            const supported = listData.models.filter(m => 
+                                m.supportedGenerationMethods && 
+                                m.supportedGenerationMethods.includes("generateContent")
+                            );
+                            if (supported.length > 0) {
+                                // Prioritize flash models for low latency
+                                supported.sort((a, b) => {
+                                    const aFlash = a.name.includes("flash") ? 1 : 0;
+                                    const bFlash = b.name.includes("flash") ? 1 : 0;
+                                    return bFlash - aFlash;
+                                });
+                                cachedModels = supported.map(m => m.name);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn("Could not query model list:", e);
+                }
+            }
+
+            const candidateModels = (cachedModels && cachedModels.length > 0) 
+                ? cachedModels 
+                : ["models/gemini-2.0-flash", "models/gemini-1.5-flash-latest"];
 
             const userParts = [];
             if (userAudio) {
                 userParts.push({
                     text: userMessage 
-                        ? `User note: ${userMessage}. Answer the spoken audio question concisely according to your strict instructions:` 
+                        ? `User query note: ${userMessage}. Answer the user's spoken audio question concisely according to your strict instructions:` 
                         : "Listen to the user's spoken audio question and answer it concisely according to your strict instructions:"
                 });
                 userParts.push({
@@ -119,7 +159,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                 ],
                 generationConfig: {
                     temperature: 0.2,
-                    maxOutputTokens: 140,
+                    maxOutputTokens: 180,
                 }
             });
 
@@ -127,9 +167,10 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             let lastErrText = "";
             let usedModel = "";
 
-            for (const modelName of modelsToTry) {
-                usedModel = modelName;
-                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
+            for (const modelName of candidateModels) {
+                const cleanModel = modelName.startsWith("models/") ? modelName : `models/${modelName}`;
+                usedModel = cleanModel;
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/${cleanModel}:generateContent?key=${apiKey}`;
 
                 response = await fetch(geminiUrl, {
                     method: "POST",
@@ -141,11 +182,13 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
                     break;
                 } else {
                     lastErrText = await response.text();
-                    console.error(`Gemini (${modelName}) Error:`, lastErrText);
+                    console.error(`Gemini (${cleanModel}) Error:`, lastErrText);
                 }
             }
 
             if (!response || !response.ok) {
+                // Clear cache on fatal failure so next call re-syncs
+                cachedModels = null;
                 return new Response(JSON.stringify({
                     reply: "Unable to reach Gemini dialog engine at the moment. Please try again or reach Eso at eso@esodevelops.com.",
                     details: lastErrText
@@ -159,7 +202,7 @@ STRICT KNOWLEDGE & GUARDRAIL RULES:
             const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 
                 "This information is not available on this site. You can check Eso's updates directly on X (@EsoUpdates) or LinkedIn.";
 
-            // 2. Direct Studio Audio Voice Generation (Direct hit on the active model)
+            // 2. Direct Studio Audio Voice Generation (Uses the verified working model)
             let outputAudioData = null;
             let outputAudioMime = null;
 
