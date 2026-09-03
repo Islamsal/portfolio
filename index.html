@@ -2369,34 +2369,82 @@
             });
         }
 
-        const playNativeGeminiAudio = (base64Audio, mime = "audio/wav") => {
+        const playNativeGeminiAudio = (base64Audio, mime = "") => {
             if (!isVoiceOutputEnabled) return;
             try {
+                // Stop any currently playing audio
+                if (window.__currentPcmSource) {
+                    try { window.__currentPcmSource.stop(); } catch(e){}
+                    window.__currentPcmSource = null;
+                }
                 if (window.__currentAudio) {
                     try {
                         window.__currentAudio.pause();
                         window.__currentAudio.currentTime = 0;
                     } catch(e){}
                 }
-                const audio = new Audio(`data:${mime};base64,${base64Audio}`);
+
+                const binary = atob(base64Audio);
+                const len = binary.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+
+                // Gemini Native audio format: linear 16-bit PCM at 24000 Hz
+                if (!mime || mime.includes("l16") || mime.includes("pcm")) {
+                    const sampleRate = 24000;
+                    const int16 = new Int16Array(bytes.buffer);
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (!window.__aiAudioCtx) {
+                        window.__aiAudioCtx = new AudioCtx({ sampleRate });
+                    }
+                    if (window.__aiAudioCtx.state === 'suspended') {
+                        window.__aiAudioCtx.resume();
+                    }
+
+                    const buffer = window.__aiAudioCtx.createBuffer(1, int16.length, sampleRate);
+                    const channelData = buffer.getChannelData(0);
+                    for (let i = 0; i < int16.length; i++) {
+                        channelData[i] = int16[i] / 32768.0;
+                    }
+
+                    const source = window.__aiAudioCtx.createBufferSource();
+                    source.buffer = buffer;
+                    source.connect(window.__aiAudioCtx.destination);
+                    window.__currentPcmSource = source;
+
+                    source.onended = () => {
+                        aiWidget.classList.remove("speaking");
+                    };
+
+                    aiWidget.classList.add("speaking");
+                    source.start(0);
+                    return;
+                }
+
+                // Standard audio container (WAV / MP3) fallback
+                const blob = new Blob([bytes], { type: mime || 'audio/wav' });
+                const url = URL.createObjectURL(blob);
+                const audio = new Audio(url);
                 window.__currentAudio = audio;
 
                 audio.onplay = () => aiWidget.classList.add("speaking");
-                audio.onended = () => aiWidget.classList.remove("speaking");
+                audio.onended = () => {
+                    aiWidget.classList.remove("speaking");
+                    URL.revokeObjectURL(url);
+                };
                 audio.onerror = () => {
                     aiWidget.classList.remove("speaking");
-                    console.warn("Native audio decode error, falling back to speech synthesis");
+                    URL.revokeObjectURL(url);
                 };
 
-                const p = audio.play();
-                if (p !== undefined) {
-                    p.catch(err => {
-                        console.warn("Audio autoplay blocked:", err);
-                        aiWidget.classList.remove("speaking");
-                    });
-                }
+                audio.play().catch(err => {
+                    console.warn("Audio playback error:", err);
+                    aiWidget.classList.remove("speaking");
+                });
             } catch (err) {
-                console.warn("Native audio error:", err);
+                console.warn("Native audio decode error:", err);
                 aiWidget.classList.remove("speaking");
             }
         };
