@@ -299,6 +299,184 @@
             padding: 40px 0 80px;
         }
 
+        .hero-main-layout {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 48px;
+            margin-bottom: 56px;
+        }
+
+        .hero-copy {
+            flex: 1;
+            max-width: 620px;
+            z-index: 2;
+        }
+
+        /* ======================================================
+           3D MINIMALIST ARCHITECTURAL WIREFRAME MONOMARK
+        ====================================================== */
+        .hero-3d-stage {
+            width: 380px;
+            height: 380px;
+            flex-shrink: 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 1200px;
+            user-select: none;
+            cursor: grab;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .hero-3d-stage:active {
+            cursor: grabbing;
+        }
+
+        /* 3D Viewport & Object Container */
+        .logo-3d-viewport {
+            width: 320px;
+            height: 320px;
+            position: relative;
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+
+        .logo-3d-object {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+
+        /* Wireframe Bars */
+        .wire-bar {
+            position: absolute;
+            height: 16%;
+            border-radius: 999px;
+            transform-style: preserve-3d;
+            transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s ease;
+        }
+
+        .bar-top {
+            top: 15%;
+            left: 15%;
+            width: 70%;
+        }
+
+        .bar-middle {
+            top: 42%;
+            left: 35%;
+            width: 50%;
+        }
+
+        .bar-bottom {
+            top: 69%;
+            left: 15%;
+            width: 70%;
+        }
+
+        /* Signature Hover Slide: Middle bar springs inward matching the logo */
+        .hero-3d-stage:hover .bar-middle {
+            left: 15%;
+        }
+
+        /* Dual Parallax Wireframe Planes (Front & Back) */
+        .wire-plane {
+            position: absolute;
+            inset: 0;
+            border-radius: 999px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+        }
+
+        /* Back Plane (Recessed in Z-space) */
+        .wire-bar .plane-back {
+            transform: translateZ(-20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.015);
+        }
+
+        :root[data-theme="light"] .wire-bar .plane-back {
+            border-color: rgba(0, 0, 0, 0.1);
+            background: rgba(0, 0, 0, 0.015);
+        }
+
+        /* Front Plane (Elevated in Z-space) */
+        .bar-top .plane-front,
+        .bar-bottom .plane-front {
+            transform: translateZ(20px);
+            border: 1px solid rgba(255, 255, 255, 0.32);
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(2px);
+            overflow: hidden;
+        }
+
+        :root[data-theme="light"] .bar-top .plane-front,
+        :root[data-theme="light"] .bar-bottom .plane-front {
+            border-color: rgba(0, 0, 0, 0.22);
+            background: rgba(0, 0, 0, 0.025);
+        }
+
+        .hero-3d-stage:hover .bar-top .plane-front,
+        .hero-3d-stage:hover .bar-bottom .plane-front {
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        :root[data-theme="light"] .hero-3d-stage:hover .bar-top .plane-front,
+        :root[data-theme="light"] .hero-3d-stage:hover .bar-bottom .plane-front {
+            border-color: rgba(0, 0, 0, 0.4);
+        }
+
+        /* Signature Electric Mint Core (Middle Bar) */
+        .bar-middle .plane-back {
+            border-color: rgba(61, 214, 140, 0.35) !important;
+            background: rgba(61, 214, 140, 0.03) !important;
+        }
+
+        .bar-middle .plane-front {
+            transform: translateZ(28px);
+            border: 1.25px solid #3dd68c;
+            background: rgba(61, 214, 140, 0.08);
+            box-shadow: 0 0 24px rgba(61, 214, 140, 0.24), inset 0 0 12px rgba(61, 214, 140, 0.12);
+            backdrop-filter: blur(2px);
+            overflow: hidden;
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+
+        .hero-3d-stage:hover .bar-middle .plane-front {
+            border-color: #5efcc0;
+            box-shadow: 0 0 38px rgba(61, 214, 140, 0.5), inset 0 0 16px rgba(61, 214, 140, 0.25);
+        }
+
+        /* Subtle Dynamic Specular Light Glint */
+        .wire-glint {
+            position: absolute;
+            inset: -50%;
+            background: linear-gradient(var(--glint-deg, 115deg), rgba(255, 255, 255, var(--glint-alpha, 0.25)) 0%, rgba(255, 255, 255, 0) 50%);
+            pointer-events: none;
+            mix-blend-mode: overlay;
+        }
+
+        @media (max-width: 900px) {
+            .hero-main-layout {
+                flex-direction: column-reverse;
+                align-items: center;
+                gap: 36px;
+                text-align: left;
+            }
+            .hero-3d-stage {
+                width: 300px;
+                height: 300px;
+            }
+            .logo-3d-viewport {
+                width: 250px;
+                height: 250px;
+            }
+        }
+
         /* Live Status Badge with pulsing green dot */
         .status-badge {
             display: inline-flex;
@@ -1510,7 +1688,6 @@
                 <a href="#work">WORK</a>
                 <a href="#about">ABOUT</a>
                 <a href="#contact">CONTACT</a>
-                <a href="/writing/">WRITING</a>
                 <button id="themeToggle" class="theme-btn" type="button" aria-label="Toggle theme">DARK</button>
             </nav>
         </div>
@@ -1519,62 +1696,96 @@
     <!-- 3. Main Page Content -->
     <main class="main-content">
         <section class="hero-section" id="top">
-            <!-- Live Status Badge -->
-            <div class="status-badge">
-                <span class="status-dot"></span>
-                <span class="status-text">AVAILABLE FOR IDEAS &amp; COLLABORATION</span>
-            </div>
+            <div class="hero-main-layout">
+                <div class="hero-copy">
+                    <!-- Live Status Badge -->
+                    <div class="status-badge">
+                        <span class="status-dot"></span>
+                        <span class="status-text">AVAILABLE FOR IDEAS &amp; COLLABORATION</span>
+                    </div>
 
-            <!-- Main Headline & Subtitle -->
-            <h1 class="hero-title">Eso</h1>
-            <p class="hero-sub">CS student, currently &amp; probably always...</p>
-            <p class="hero-desc">
-                Learning from the open web, engineering apps, systems &amp; solutions, and shipping on my own clock.
-            </p>
+                    <!-- Main Headline & Subtitle -->
+                    <h1 class="hero-title">Eso</h1>
+                    <p class="hero-sub">CS student, currently &amp; probably always...</p>
+                    <p class="hero-desc">
+                        Learning from the open web, engineering apps, systems &amp; solutions, and shipping on my own clock.
+                    </p>
 
-            <!-- Call to Action Buttons with Micro-Captions -->
-            <div class="hero-actions">
-                <div class="action-card">
-                    <span class="action-hint">Curious what shipped?</span>
-                    <a href="#work" class="btn btn-primary">EXPLORE WORK ↓</a>
-                </div>
-                <!-- Connect With Us with Bare Inline Social Icons to the Right -->
-                <div class="connect-zone" id="connectZone">
-                    <a href="#contact" class="btn btn-secondary" id="connectBtn">CONNECT WITH US →</a>
-                    <!-- Bare Social Icons sitting directly on the background with Brand-Specific Hovers -->
-                    <div class="inline-socials" id="inlineSocials" aria-label="Social connections">
-                        <a href="https://www.linkedin.com/in/islam-salem-a1120b432/" target="_blank" rel="noopener"
-                            class="social-box social-linkedin" title="LinkedIn">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <path
-                                    d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z">
-                                </path>
-                                <rect x="2" y="9" width="4" height="12"></rect>
-                                <circle cx="4" cy="4" r="2"></circle>
-                            </svg>
-                        </a>
-                        <a href="https://x.com/EsoUpdates" target="_blank" rel="noopener" class="social-box social-x"
-                            title="X (Twitter)">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                            </svg>
-                        </a>
-                        <a href="#" target="_blank" rel="noopener" class="social-box social-reddit" title="Reddit">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path
-                                    d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.703zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.197-2.512-.73a.326.326 0 0 0-.232-.095z" />
-                            </svg>
-                        </a>
-                        <a href="https://www.quora.com/profile/Eso-99" target="_blank" rel="noopener" class="social-box social-quora" title="Quora">
-                            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
-                                <path
-                                    d="M8.73 12.476c-.554-1.091-1.204-2.193-2.473-2.193-.242 0-.484.04-.707.142l-.43-.863c.525-.45 1.373-.808 2.464-.808 1.697 0 2.568.818 3.26 1.86.41-.89.605-2.093.605-3.584 0-3.724-1.165-5.636-3.885-5.636-2.68 0-3.839 1.912-3.839 5.636 0 3.704 1.159 5.596 3.84 5.596.425 0 .811-.046 1.166-.15Zm.665 1.3a7 7 0 0 1-1.83.244C3.994 14.02.5 11.172.5 7.03.5 2.849 3.995 0 7.564 0c3.63 0 7.09 2.828 7.09 7.03 0 2.337-1.09 4.236-2.675 5.464.512.767 1.04 1.277 1.773 1.277.802 0 1.125-.62 1.179-1.105h1.043c.061.647-.262 3.334-3.178 3.334-1.767 0-2.7-1.024-3.4-2.224Z" />
-                            </svg>
-                        </a>
+                    <!-- Call to Action Buttons with Micro-Captions -->
+                    <div class="hero-actions">
+                        <div class="action-card">
+                            <span class="action-hint">Curious what shipped?</span>
+                            <a href="#work" class="btn btn-primary">EXPLORE WORK ↓</a>
+                        </div>
+                        <!-- Connect With Us with Bare Inline Social Icons to the Right -->
+                        <div class="connect-zone" id="connectZone">
+                            <a href="#contact" class="btn btn-secondary" id="connectBtn">CONNECT WITH US →</a>
+                            <!-- Bare Social Icons sitting directly on the background with Brand-Specific Hovers -->
+                            <div class="inline-socials" id="inlineSocials" aria-label="Social connections">
+                                <a href="https://www.linkedin.com/in/islam-salem-a1120b432/" target="_blank" rel="noopener"
+                                    class="social-box social-linkedin" title="LinkedIn">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2">
+                                        <path
+                                            d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z">
+                                        </path>
+                                        <rect x="2" y="9" width="4" height="12"></rect>
+                                        <circle cx="4" cy="4" r="2"></circle>
+                                    </svg>
+                                </a>
+                                <a href="https://x.com/EsoUpdates" target="_blank" rel="noopener" class="social-box social-x"
+                                    title="X (Twitter)">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                        <path
+                                            d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                                    </svg>
+                                </a>
+                                <a href="#" target="_blank" rel="noopener" class="social-box social-reddit" title="Reddit">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path
+                                            d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.703zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.197-2.512-.73a.326.326 0 0 0-.232-.095z" />
+                                    </svg>
+                                </a>
+                                <a href="https://www.quora.com/profile/Eso-99" target="_blank" rel="noopener" class="social-box social-quora" title="Quora">
+                                    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                                        <path
+                                            d="M8.73 12.476c-.554-1.091-1.204-2.193-2.473-2.193-.242 0-.484.04-.707.142l-.43-.863c.525-.45 1.373-.808 2.464-.808 1.697 0 2.568.818 3.26 1.86.41-.89.605-2.093.605-3.584 0-3.724-1.165-5.636-3.885-5.636-2.68 0-3.839 1.912-3.839 5.636 0 3.704 1.159 5.596 3.84 5.596.425 0 .811-.046 1.166-.15Zm.665 1.3a7 7 0 0 1-1.83.244C3.994 14.02.5 11.172.5 7.03.5 2.849 3.995 0 7.564 0c3.63 0 7.09 2.828 7.09 7.03 0 2.337-1.09 4.236-2.675 5.464.512.767 1.04 1.277 1.773 1.277.802 0 1.125-.62 1.179-1.105h1.043c.061.647-.262 3.334-3.178 3.334-1.767 0-2.7-1.024-3.4-2.224Z" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
+
+                <!-- 3D Minimalist Architectural Wireframe Monomark (Links to Newsletter) -->
+                <a href="/newsletter/" class="hero-3d-stage" id="hero3dStage" aria-label="Explore Computer Science Newsletter">
+                    <!-- 3D Viewport & Wireframe Monomark -->
+                    <div class="logo-3d-viewport" id="logo3dViewport">
+                        <div class="logo-3d-object" id="logo3dObject">
+                            <!-- Top Bar: Hairline Architectural Wireframe -->
+                            <div class="wire-bar bar-top">
+                                <div class="wire-plane plane-back"></div>
+                                <div class="wire-plane plane-front">
+                                    <div class="wire-glint"></div>
+                                </div>
+                            </div>
+                            <!-- Middle Bar: Signature Electric Mint Core Filament -->
+                            <div class="wire-bar bar-middle">
+                                <div class="wire-plane plane-back"></div>
+                                <div class="wire-plane plane-front">
+                                    <div class="wire-glint"></div>
+                                </div>
+                            </div>
+                            <!-- Bottom Bar: Hairline Architectural Wireframe -->
+                            <div class="wire-bar bar-bottom">
+                                <div class="wire-plane plane-back"></div>
+                                <div class="wire-plane plane-front">
+                                    <div class="wire-glint"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
             </div>
 
             <!-- Scannable Metadata Grid (Invisible at rest, reveals on hover) -->
@@ -2782,6 +2993,154 @@
                 }
             });
         }
+
+        // ======================================================
+        // 3D MINIMALIST ARCHITECTURAL WIREFRAME ENGINE
+        // ======================================================
+        (() => {
+            const stage = document.getElementById("hero3dStage");
+            const viewport = document.getElementById("logo3dViewport");
+            const obj = document.getElementById("logo3dObject");
+
+            if (!stage || !viewport || !obj) return;
+
+            let targetRotX = 0, targetRotY = 0;
+            let currentRotX = 0, currentRotY = 0;
+            let targetTransX = 0, targetTransY = 0;
+            let currentTransX = 0, currentTransY = 0;
+
+            let isDragging = false;
+            let startX = 0, startY = 0;
+            let velX = 0, velY = 0;
+            let lastMouseMoveTime = performance.now();
+
+            // Track mouse anywhere on viewport to tilt the wireframe toward cursor
+            window.addEventListener("mousemove", (e) => {
+                if (isDragging) return;
+                lastMouseMoveTime = performance.now();
+
+                const rect = stage.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                const dx = (e.clientX - centerX) / (window.innerWidth / 2);
+                const dy = (e.clientY - centerY) / (window.innerHeight / 2);
+
+                targetRotY = Math.max(-1.4, Math.min(1.4, dx)) * 30;
+                targetRotX = Math.max(-1.4, Math.min(1.4, -dy)) * 24;
+
+                targetTransX = Math.max(-1, Math.min(1, dx)) * 12;
+                targetTransY = Math.max(-1, Math.min(1, dy)) * 9;
+            }, { passive: true });
+
+            let totalDragDistance = 0;
+            let dragStartTime = 0;
+
+            // Interactive Dragging & Momentum Flick
+            function onPointerDown(clientX, clientY) {
+                isDragging = true;
+                startX = clientX;
+                startY = clientY;
+                velX = 0;
+                velY = 0;
+                totalDragDistance = 0;
+                dragStartTime = performance.now();
+            }
+
+            function onPointerMove(clientX, clientY) {
+                if (!isDragging) return;
+                lastMouseMoveTime = performance.now();
+
+                const dx = (clientX - startX) * 0.48;
+                const dy = (clientY - startY) * 0.48;
+                totalDragDistance += Math.hypot(clientX - startX, clientY - startY);
+
+                velX = dx;
+                velY = dy;
+
+                targetRotY += dx;
+                targetRotX -= dy;
+
+                startX = clientX;
+                startY = clientY;
+            }
+
+            function onPointerUp() {
+                if (!isDragging) return;
+                isDragging = false;
+                // Momentum flick throw
+                if (Math.hypot(velX, velY) > 1.5) {
+                    targetRotY += velX * 3.5;
+                    targetRotX -= velY * 3;
+                }
+            }
+
+            stage.addEventListener("mousedown", (e) => onPointerDown(e.clientX, e.clientY));
+            window.addEventListener("mousemove", (e) => onPointerMove(e.clientX, e.clientY), { passive: true });
+            window.addEventListener("mouseup", onPointerUp);
+
+            // Handle Click vs Drag Navigation on 3D Logo Link
+            stage.addEventListener("click", (e) => {
+                if (totalDragDistance > 6 || (performance.now() - dragStartTime) > 350) {
+                    e.preventDefault();
+                    return;
+                }
+                const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+                if (!isLocal) {
+                    e.preventDefault();
+                    const toastMsg = document.querySelector("#toast .toast-msg");
+                    const toast = document.getElementById("toast");
+                    if (toastMsg && toast) {
+                        toastMsg.textContent = "// DISPATCH 001 · NEWSLETTER INCOMING SOON";
+                        toast.classList.add("show");
+                        clearTimeout(window._nlToastTimer);
+                        window._nlToastTimer = setTimeout(() => toast.classList.remove("show"), 3200);
+                    }
+                }
+            });
+
+            // Mobile Touch Support
+            stage.addEventListener("touchstart", (e) => {
+                if (e.touches.length === 1) onPointerDown(e.touches[0].clientX, e.touches[0].clientY);
+            }, { passive: true });
+            window.addEventListener("touchmove", (e) => {
+                if (e.touches.length === 1) onPointerMove(e.touches[0].clientX, e.touches[0].clientY);
+            }, { passive: true });
+            window.addEventListener("touchend", onPointerUp);
+
+            // 60-120 FPS Animation Loop (Matrix math + dynamic light glint + gentle levitation)
+            function animate3D(now) {
+                const idleElapsed = now - lastMouseMoveTime;
+
+                // Ambient sine-wave levitation if idle for > 1.4s
+                if (idleElapsed > 1400 && !isDragging) {
+                    const t = now * 0.0012;
+                    const idleX = Math.sin(t * 1.1) * 6;
+                    const idleY = Math.cos(t * 0.8) * 8;
+                    targetRotX += (idleX - targetRotX) * 0.035;
+                    targetRotY += (idleY - targetRotY) * 0.035;
+                    targetTransY += (Math.sin(t * 1.4) * 5 - targetTransY) * 0.035;
+                }
+
+                // Spring physics LERP damping
+                currentRotX += (targetRotX - currentRotX) * 0.088;
+                currentRotY += (targetRotY - currentRotY) * 0.088;
+                currentTransX += (targetTransX - currentTransX) * 0.088;
+                currentTransY += (targetTransY - currentTransY) * 0.088;
+
+                // 1. Transform Core 3D Object
+                obj.style.transform = `translate3d(${currentTransX.toFixed(2)}px, ${currentTransY.toFixed(2)}px, 0) rotateX(${currentRotX.toFixed(2)}deg) rotateY(${currentRotY.toFixed(2)}deg)`;
+
+                // 2. Dynamic Specular Light Glint Angle
+                const glintDeg = (115 + currentRotY * 1.3 - currentRotX * 0.9).toFixed(1);
+                const glintAlpha = Math.max(0.08, Math.min(0.35, 0.25 - (Math.abs(currentRotX) + Math.abs(currentRotY)) * 0.003)).toFixed(2);
+                stage.style.setProperty("--glint-deg", `${glintDeg}deg`);
+                stage.style.setProperty("--glint-alpha", glintAlpha);
+                requestAnimationFrame(animate3D);
+            }
+
+            requestAnimationFrame(animate3D);
+        })();
     </script>
 </body>
 
